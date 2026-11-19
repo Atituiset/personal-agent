@@ -1,0 +1,20 @@
+# 本地起一个 Postgres 17：docker compose up -d
+# 密码只用于本机开发；生产环境请用环境变量或密钥管理。
+services:
+  postgres:
+    image: postgres:17
+    environment:
+      POSTGRES_USER: personal_agent
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-change-me}
+      POSTGRES_DB: personal_agent
+    ports:
+      - "127.0.0.1:5432:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+      - ./scripts/create-test-db.sql:/docker-entrypoint-initdb.d/10-test-db.sql:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U personal_agent"]
+      interval: 2s
+      retries: 30
+volumes:
+  pgdata:

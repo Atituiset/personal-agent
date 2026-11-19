@@ -1,0 +1,50 @@
+============================= test session starts ==============================
+platform linux -- Python 3.12.16, pytest-9.2.0, pluggy-1.7.0 -- ./.venv/bin/python
+cachedir: .pytest_cache
+rootdir: .
+configfile: pyproject.toml
+testpaths: tests
+plugins: anyio-4.16.0
+collecting ... collected 12 items
+
+tests/test_acceptance.py::test_1_submit_returns_job_id_within_100ms PASSED [  8%]
+tests/test_acceptance.py::test_2_same_idempotency_key_returns_same_job PASSED [ 16%]
+tests/test_acceptance.py::test_3_kill9_before_persist_is_redelivered PASSED [ 25%]
+tests/test_acceptance.py::test_4_kill9_after_persist_does_not_call_model_again PASSED [ 33%]
+tests/test_acceptance.py::test_5a_stale_lease_holder_process_is_fenced PASSED [ 41%]
+tests/test_acceptance.py::test_5b_fencing_token_rejects_stale_writes PASSED [ 50%]
+tests/test_acceptance.py::test_6_two_workers_200_jobs_no_dup_no_loss PASSED [ 58%]
+tests/test_unit.py::test_core_has_no_infra_or_driver_imports PASSED      [ 66%]
+tests/test_unit.py::test_artifact_store_is_content_addressed_and_detects_tampering PASSED [ 75%]
+tests/test_unit.py::test_backoff_is_bounded PASSED                       [ 83%]
+tests/test_unit.py::test_step_checkpoint_and_effect_ledger PASSED        [ 91%]
+tests/test_unit.py::test_retry_then_dead_letter PASSED                   [100%]
+
+============================== slowest durations ===============================
+2.46s call     tests/test_acceptance.py::test_3_kill9_before_persist_is_redelivered
+2.43s call     tests/test_acceptance.py::test_4_kill9_after_persist_does_not_call_model_again
+2.35s call     tests/test_acceptance.py::test_5a_stale_lease_holder_process_is_fenced
+1.17s call     tests/test_acceptance.py::test_6_two_workers_200_jobs_no_dup_no_loss
+0.53s setup    tests/test_acceptance.py::test_1_submit_returns_job_id_within_100ms
+0.51s call     tests/test_acceptance.py::test_1_submit_returns_job_id_within_100ms
+0.46s setup    tests/test_acceptance.py::test_2_same_idempotency_key_returns_same_job
+0.21s teardown tests/test_acceptance.py::test_1_submit_returns_job_id_within_100ms
+0.16s teardown tests/test_acceptance.py::test_2_same_idempotency_key_returns_same_job
+0.10s teardown tests/test_acceptance.py::test_6_two_workers_200_jobs_no_dup_no_loss
+0.10s teardown tests/test_acceptance.py::test_5a_stale_lease_holder_process_is_fenced
+0.08s call     tests/test_acceptance.py::test_2_same_idempotency_key_returns_same_job
+0.05s call     tests/test_acceptance.py::test_5b_fencing_token_rejects_stale_writes
+0.05s call     tests/test_unit.py::test_retry_then_dead_letter
+0.03s call     tests/test_unit.py::test_step_checkpoint_and_effect_ledger
+0.03s teardown tests/test_acceptance.py::test_4_kill9_after_persist_does_not_call_model_again
+0.03s teardown tests/test_acceptance.py::test_3_kill9_before_persist_is_redelivered
+0.03s setup    tests/test_acceptance.py::test_4_kill9_after_persist_does_not_call_model_again
+0.02s setup    tests/test_acceptance.py::test_5a_stale_lease_holder_process_is_fenced
+0.02s setup    tests/test_acceptance.py::test_5b_fencing_token_rejects_stale_writes
+0.02s setup    tests/test_unit.py::test_step_checkpoint_and_effect_ledger
+0.02s setup    tests/test_acceptance.py::test_6_two_workers_200_jobs_no_dup_no_loss
+0.02s setup    tests/test_acceptance.py::test_3_kill9_before_persist_is_redelivered
+0.01s setup    tests/test_unit.py::test_retry_then_dead_letter
+
+(12 durations < 0.005s hidden.  Use -vv to show these durations.)
+============================= 12 passed in 10.99s ==============================
