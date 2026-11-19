@@ -117,8 +117,12 @@ def spawn(env):
     procs = []
 
     def start(kind, name, *args, fault=None, extra_env=None):
+        backend = os.environ.get("PA_ACCEPTANCE_LLM", "fake")   # 设为 opencode 可用真实模型跑验收
         e = {**os.environ, "DATABASE_URL": env["db"], "PA_ARTIFACT_DIR": str(env["artifacts"]),
-             "PA_FAKE_LLM_LEDGER": str(env["ledger"]), "PA_LLM": "fake", "PYTHONUNBUFFERED": "1"}
+             "PA_LLM": backend, "PYTHONUNBUFFERED": "1"}
+        e.pop("PA_FAKE_LLM_LEDGER", None)
+        e.pop("PA_LLM_LEDGER", None)
+        e["PA_FAKE_LLM_LEDGER" if backend == "fake" else "PA_LLM_LEDGER"] = str(env["ledger"])
         e.pop("PA_FAULT_PAUSE_AT", None)
         if fault:
             e.update(PA_FAULT_PAUSE_AT=fault, PA_FAULT_DIR=str(env["faults"]))

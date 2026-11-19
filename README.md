@@ -95,6 +95,36 @@ curl -s "localhost:8080/jobs/<job_id>?include_result=true"
 
 接真实模型：设置 `PA_LLM=openai`、`PA_LLM_BASE_URL`、`PA_LLM_API_KEY`、`PA_LLM_MODEL`（任意 OpenAI 兼容的 `/chat/completions`）。密钥只从环境变量读取。M0 的测试只用 fake LLM。
 
+## 接入真实模型（OpenCode）
+
+默认 `PA_LLM=fake`，不会调用任何真实模型。可选两条路径：
+
+| 方式 | 配置 | 能用的模型 | 是否需要 key |
+|---|---|---|---|
+| OpenCode CLI | `PA_LLM=opencode`，可选 `PA_OPENCODE_MODEL`（默认 `opencode/deepseek-v4.1-flash-free`）、`PA_OPENCODE_BIN` | 免费模型 + 付费模型 | 免费模型不需要；受免费额度限制 |
+| OpenAI 兼容 HTTP | `PA_LLM=openai`，`PA_LLM_BASE_URL=https://opencode.ai/inference/openai/v1`，`PA_LLM_MODEL=<付费模型>`，`OPENCODE_API_KEY=oc_sk_...`（或 `PA_LLM_API_KEY`） | 只有付费模型 / Go | 需要 |
+
+为什么免费模型只能走 CLI：官方文档写明免费聊天模型只能在 OpenCode 内使用，其他客户端即使带 Console API key 也会收到 HTTP 403（[harnesses](https://opencode.ai/docs/console/harnesses/)，[models](https://opencode.ai/docs/console/models/)）。
+
+`PA_LLM=opencode` 的适配器（`personal_agent/infra/opencode_cli.py`）会：
+- 在临时目录里运行 `opencode run --standalone --format json --model <模型> <prompt>`；
+- 使用独立的 XDG 目录，并通过 `OPENCODE_CONFIG_CONTENT` 关闭自动更新和分享，拒绝所有工具权限；
+- 超时后杀掉整个进程组；
+- 把 429 / `provider.free-limit` 映射成 `RateLimited`，带上 `retry_after`。broker 至少会等这么久再重试，所以额度用完时任务进入 `retry_wait`，而不是 `dead`。
+
+免费模型的数据条款各不相同：有的会把数据用于训练，有的只供试用、要求不要提交个人或机密数据，还有区域限制。官方说明这些模型只是“限时免费”。提交前请先看 [models 页面的 Free models / Privacy 部分](https://opencode.ai/docs/console/models/)；自己使用 OpenCode CLI 时，可以设置 `OPENCODE_DISABLE_FREE_MODELS=1` 隐藏免费模型。
+
+真实模型验证（额度可用时）：
+
+```bash
+export PATH=~/.npm-global/bin:$PATH        # opencode CLI 所在位置
+PA_LLM=opencode PA_LLM_LEDGER=var/llm-ledger.jsonl .venv/bin/python -m personal_agent worker --worker-id live
+.venv/bin/python scripts/opencode-live.py 5             # 提交 5 个 demo.summarize，打印耗时、tokens 和输出
+PA_ACCEPTANCE_LLM=opencode .venv/bin/python -m pytest -q tests/test_acceptance.py -k after_persist   # 真实模型下的 kill -9 测试
+```
+
+`PA_LLM_LEDGER` 会给任意后端记账：每次调用模型前追加一行并 fsync，用来证明崩溃恢复时没有重复调用模型。
+
 ## 测试
 
 ```bash

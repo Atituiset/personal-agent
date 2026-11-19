@@ -166,7 +166,8 @@ class PgBroker:
     async def fail(self, job, worker: str, err: JobError, backoff_base: float = 1.0) -> str:
         dead = (not err.retryable) or job["attempt"] >= job["max_attempts"]
         state = "dead" if dead else "retry_wait"
-        delay = 0.0 if dead else backoff_seconds(job["attempt"], backoff_base)
+        delay = 0.0 if dead else max(backoff_seconds(job["attempt"], backoff_base),
+                                     float(getattr(err, "retry_after", None) or 0))
         async with self.pool.connection() as conn:
             async with conn.transaction():
                 cur = await conn.execute(
