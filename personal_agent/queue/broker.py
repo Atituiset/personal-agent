@@ -133,14 +133,15 @@ class PgBroker:
                 "WHERE job_id = %s AND attempt = %s AND outcome IN ('running', 'lease_expired')",
                 (Jsonb({"kind": "fenced", "stage": stage, "worker": worker}), job["job_id"], job["attempt"]))
 
-    async def persist_receipt(self, job, worker: str, result_ref: dict) -> None:
+    async def persist_receipt(self, job, worker: str, result_ref: dict, usage: list | None = None) -> None:
         """Persist：结果产物已写入 Artifact Store，这里写 durable receipt（带 fencing）。"""
         async with self.pool.connection() as conn:
             async with conn.transaction():
                 if await self._fenced(conn, job, worker):
                     await conn.execute(
-                        "UPDATE attempts SET outcome = 'persisted', persisted_at = now(), result_ref = %s "
-                        "WHERE job_id = %s AND attempt = %s", (Jsonb(result_ref), job["job_id"], job["attempt"]))
+                        "UPDATE attempts SET outcome = 'persisted', persisted_at = now(), result_ref = %s, usage = %s "
+                        "WHERE job_id = %s AND attempt = %s",
+                        (Jsonb(result_ref), Jsonb(usage) if usage is not None else None, job["job_id"], job["attempt"]))
                     return
         await self._mark_fenced(job, worker, "persist")
         raise LeaseLost(f"persist rejected for {job['job_id']} attempt {job['attempt']}")
@@ -163,7 +164,8 @@ class PgBroker:
         await self._mark_fenced(job, worker, "ack")
         raise LeaseLost(f"ack rejected for {job['job_id']} attempt {job['attempt']}")
 
-    async def fail(self, job, worker: str, err: JobError, backoff_base: float = 1.0) -> str:
+    async def fail(self, job, worker: str, err: JobError, backoff_base: float = 1.0,
+                   usage: list | None = None) -> str:
         dead = (not err.retryable) or job["attempt"] >= job["max_attempts"]
         state = "dead" if dead else "retry_wait"
         delay = 0.0 if dead else max(backoff_seconds(job["attempt"], backoff_base),
@@ -178,8 +180,9 @@ class PgBroker:
                      "err": Jsonb(err.to_json()), "delay": delay, "dead": dead})
                 if cur.rowcount == 1:
                     await conn.execute(
-                        "UPDATE attempts SET outcome = 'failed', finished_at = now(), error = %s "
-                        "WHERE job_id = %s AND attempt = %s", (Jsonb(err.to_json()), job["job_id"], job["attempt"]))
+                        "UPDATE attempts SET outcome = 'failed', finished_at = now(), error = %s, usage = %s "
+                        "WHERE job_id = %s AND attempt = %s",
+                        (Jsonb(err.to_json()), Jsonb(usage) if usage else None, job["job_id"], job["attempt"]))
                     if dead:
                         await self._dead_letter(conn, job["job_id"], err.kind, err.to_json(), job["attempt"])
                     return state

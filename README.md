@@ -1,13 +1,14 @@
 # personal-agent
 
-一个以**异步任务队列**为核心的个人助理型 Agent。当前是 **M0：可靠的单队列骨架**。
+一个以**异步任务队列**为核心的个人助理型 Agent。当前是 **M0.2：可靠的单队列骨架 + OpenAI Agents SDK 执行后端**。
 
 - 提交与执行分离：`POST /jobs` 只写库并返回 `job_id`，Worker 在后台消费。
 - Postgres 同时充当 Broker 和 State Store：`FOR UPDATE SKIP LOCKED` 领任务，用租约加心跳占用执行权，过期租约自动回收。
 - **先持久化，再 ACK**：结果产物写入内容寻址存储并记录 durable receipt；ACK 在一个事务里同时写结果和改状态。
 - **至少一次投递 + 幂等**：`idempotency_key` 去重；Worker 执行前先查回执，崩溃恢复时不会重复调用模型。
 - **fencing token**：`attempt` 每次 lease 加 1，过期租约持有者的所有写入都会被拒绝。
-- 默认使用确定性的 fake LLM，不需要 API key；预留了 OpenAI 兼容接口（`PA_LLM=openai`）。
+- 默认使用确定性的 fake LLM，不需要 API key；预留了 OpenAI 兼容接口（`PA_LLM=openai`）和 OpenCode CLI（`PA_LLM=opencode`）。
+- **Agent 执行后端**：用 [OpenAI Agents SDK](https://openai.github.io/openai-agents-python/)（`openai-agents`）跑带工具白名单的 `agent.run` 任务，见[下文](#agent-执行后端openai-agents-sdk)。
 
 设计文档见 [docs/design.md](docs/design.md)，M0 验收报告见 [docs/m0-test-report.md](docs/m0-test-report.md)。
 
@@ -32,7 +33,8 @@ flowchart LR
     PER --> ART
     ACK --> PG
     R --> PG
-    P --> LLM["FakeLLM（默认）<br/>OpenAICompatLLM（预留）"]
+    P --> LLM["LLMExecutor：FakeLLM（默认）<br/>OpenAICompat · OpenCode CLI · Agents SDK"]
+    P --> AG["agent.run<br/>Agents SDK Runner.run"]
 ```
 
 任务状态（M0）：`queued → leased → succeeded`；失败时 `leased → retry_wait →（退避到期）→ leased`；超过重试上限或遇到不可重试错误时进入 `dead`，并写一条 `dead_letters` 记录；租约过期后回到 `queued`。
@@ -51,10 +53,12 @@ personal_agent/
                context.py（JobContext：complete / step 检查点 / effect 副作用账本）· errors.py
   queue/       broker.py（Postgres 队列）· worker.py（主循环）· faults.py（测试用故障注入）
   api/         app.py（POST /jobs、GET /jobs/{id}、/healthz）
-  infra/       fake_llm.py · openai_compat.py · llm.py（按 PA_LLM 选择）
-  tasks/       demo.py（demo.summarize）
-migrations/    0001_init.sql
-tests/         test_acceptance.py（6 条验收）· test_unit.py
+  infra/       fake_llm.py · openai_compat.py · opencode_cli.py · ledger.py · llm.py（按 PA_LLM 选择）
+               agents_sdk.py（Agents SDK：FakeAgentModel、模型选择、tracing、账本 hooks、异常映射）
+  tasks/       demo.py（demo.summarize）· agent.py（agent.run 与内置工具）
+migrations/    0001_init.sql · 0002_attempt_usage.sql（attempts.usage）
+tests/         test_acceptance.py（6 条验收）· test_unit.py · test_opencode.py
+               test_agents_unit.py · test_agent_acceptance.py（agent.run）
 scripts/       run-local.sh · stop-local.sh · render_test_report.py
 ```
 
@@ -75,7 +79,7 @@ python3.12 -m venv .venv && .venv/bin/pip install -e '.[dev]'   # 或者 uv venv
 
 # 4) 迁移（两种方式都可以）
 .venv/bin/python -m personal_agent migrate
-# psql "$DATABASE_URL" -f migrations/0001_init.sql
+# psql "$DATABASE_URL" -f migrations/0001_init.sql -f migrations/0002_attempt_usage.sql
 
 # 5) 启动 API 和 worker（后台运行，日志在 var/log/）
 ./scripts/run-local.sh                     # API 在 127.0.0.1:8080
@@ -125,6 +129,95 @@ PA_ACCEPTANCE_LLM=opencode .venv/bin/python -m pytest -q tests/test_acceptance.p
 
 `PA_LLM_LEDGER` 会给任意后端记账：每次调用模型前追加一行并 fsync，用来证明崩溃恢复时没有重复调用模型。
 
+## Agent 执行后端（OpenAI Agents SDK）
+
+`agent.run` 任务用 [OpenAI Agents SDK](https://openai.github.io/openai-agents-python/)（Python 包 `openai-agents`，在 0.25.0 上测试过）运行一个 `Agent`。SDK 只负责 agent 循环本身（调用模型、执行工具、再调用模型）；租约、persist-then-ack、重试、死信、幂等仍然由队列负责。
+
+```mermaid
+flowchart LR
+    W["Worker<br/>lease · 心跳 · fencing"] -->|"process（一次）"| H["agent.run handler<br/>校验 payload · 时间预算"]
+    H -->|"Runner.run(max_turns, context)"| R["Agents SDK Runner<br/>agent 循环"]
+    R -->|"get_response"| M["Model<br/>FakeAgentModel（默认）<br/>OpenAIChatCompletionsModel"]
+    R -->|"function tools（白名单）"| T["current_time · calculate<br/>read_artifact · save_note"]
+    T -->|"save_note：ctx.effect"| E[("effects 表<br/>副作用只执行一次")]
+    R -->|"RunHooks：on_llm_start / on_llm_end"| U["调用账本 + usage"]
+    H -->|"final_output + usage"| P["persist（receipt + attempts.usage）"]
+    P -->|"ACK（同一事务）"| PG[("Postgres")]
+    U -->|"attempts.usage"| PG
+```
+
+**任务 payload**
+
+```json
+{"task_type": "agent.run",
+ "payload": {"instructions": "用工具回答。", "input": "……",
+             "tools": ["calculate", "read_artifact"],
+             "artifacts": {"doc": {"uri": "artifact://sha256/…", "sha256": "…", "size": 123}},
+             "max_turns": 6, "timeout_s": 60},
+ "idempotency_key": "agent-1"}
+```
+
+| 字段 | 说明 |
+|---|---|
+| `instructions` / `input` | 系统指令（≤ 8000 字符）和用户输入（≤ 32000 字符） |
+| `tools` | 允许使用的工具，只能从内置工具里选；默认一个都不给。模型调用白名单外的工具时，SDK 报 `ModelBehaviorError`，这次 attempt 按可重试失败处理 |
+| `artifacts` | `read_artifact` 只能读这里列出的产物，读时校验 sha256 |
+| `max_turns` | 默认 6，上限 `PA_AGENT_MAX_TURNS_CAP`（默认 12）。超出时 SDK 抛 `MaxTurnsExceeded`，映射为可重试错误 `max_turns`，重试耗尽后进死信 |
+| `timeout_s` | 整个 `Runner.run` 的时间预算，默认 120 秒；同时不超过任务超时减 5 秒（留给 persist/ACK），也不超过 `deadline_at` |
+
+**内置工具**（都不访问网络，也不执行 shell）
+
+| 工具 | 作用 | 副作用 |
+|---|---|---|
+| `current_time(tz)` | 返回当前时间（ISO 8601） | 无 |
+| `calculate(expression)` | 用 AST 白名单计算算术表达式，只支持数字、括号和 `+ - * / // % **`，指数和长度都有上限 | 无 |
+| `read_artifact(name)` | 读 `payload.artifacts` 里列出的文本产物，最多 16000 字符 | 无 |
+| `save_note(title, text)` | 把一条笔记写进本地 Artifact Store | 有：走 `ctx.effect`，键是 `job_id + 参数哈希`，同一个任务重跑时不会再执行 |
+
+**和队列语义的结合**
+
+- 整个 `Runner.run` 是一次 process 步骤，结果走 persist-then-ack。persist 之后崩溃，新 worker 直接用 receipt ACK，**不会重跑 Runner**（`test_agent_kill9_after_persist_does_not_rerun_runner`）。
+- persist 之前崩溃会重跑 Runner（模型会再被调用），但 `save_note` 这类副作用通过 effects 表去重，只执行一次（`test_agent_kill9_before_persist_reruns_runner_but_not_effect`）。
+- 心跳发现租约丢失时，正在进行的 `Runner.run` 会被取消，抛 `LeaseLost`。
+- 每次模型调用前，`RunHooks.on_llm_start` 会在调用账本里追加一行并 fsync；调用结束后，`on_llm_end` 把这次的 usage（requests、input/output/total tokens）记进 `ctx.usage`。persist 时随 receipt 写进 `attempts.usage`，失败的 attempt 也会写。结果里还有 SDK 汇总的 `result.context_wrapper.usage`。
+- SDK 自带的模型重试默认是关闭的（[官方说明](https://openai.github.io/openai-agents-python/models/)：需要显式配置 `ModelSettings(retry=...)` 才会重试）。真实模型的 `AsyncOpenAI` 客户端也设置了 `max_retries=0`，重试统一交给队列。
+
+**Tracing**：SDK 默认开启 tracing，并会把数据上传到 OpenAI（[官方说明](https://openai.github.io/openai-agents-python/tracing/)）。这里改成：
+
+| `PA_AGENTS_TRACING` | 行为 |
+|---|---|
+| `off`（默认） | 导入 SDK 前设置 `OPENAI_AGENTS_DISABLE_TRACING=1`，并调用 `set_tracing_disabled(True)`、`set_trace_processors([])`，每次运行再传 `RunConfig(tracing_disabled=True)` |
+| `local` | 用 `set_trace_processors([LocalJsonlTraceProcessor])` **替换**默认的 OpenAI 导出器，trace 和 span 写到 `PA_AGENTS_TRACE_FILE`（默认 `var/agent-traces.jsonl`）。默认 `trace_include_sensitive_data=False`，不记录模型输入输出；设置 `PA_AGENTS_TRACE_SENSITIVE=1` 才记录 |
+
+**模型**
+
+| `PA_AGENT_MODEL` | 模型 | 说明 |
+|---|---|---|
+| `fake`（默认） | `FakeAgentModel` | 实现 SDK 的自定义 `Model` 接口，离线、确定性。输入里写 `@tool <name> <json 参数>` 时，第一轮发出这些工具调用，拿到结果后给出最终回答；写 `@loop` 时每轮都调用 `current_time`，用来测 `max_turns`；没有指令时返回输入的前几句 |
+| `openai` | `OpenAIChatCompletionsModel` + `AsyncOpenAI(base_url=…)` | 任意 OpenAI 兼容的 `/chat/completions`，即官方文档里接非 OpenAI 服务的写法 |
+
+`PA_LLM=agents` 时，`demo.summarize` 这类只用 `LLMExecutor` 的任务也会经过 Agents SDK（单轮、无工具，模型同样由 `PA_AGENT_MODEL` 决定）。`agent.run` 不受 `PA_LLM` 影响，始终使用 Agents SDK。
+
+**接真实模型**（目前还没有用真实模型跑过，下面只是配置方法）：
+
+```bash
+export PA_AGENT_MODEL=openai
+export PA_LLM_BASE_URL=https://api.openai.com/v1            # 或任意 OpenAI 兼容端点，例如 https://opencode.ai/inference/openai/v1
+export PA_LLM_MODEL=<模型名>
+export PA_LLM_API_KEY=...                                   # 也可以用 OPENAI_API_KEY 或 OPENCODE_API_KEY；只从环境变量读取，不要写进仓库
+export PA_LLM_LEDGER=var/llm-ledger.jsonl                   # 可选：调用账本
+.venv/bin/python -m personal_agent worker --worker-id agent-live
+curl -s -XPOST localhost:8080/jobs -H 'content-type: application/json' -d '{"task_type":"agent.run",
+  "payload":{"instructions":"需要计算时用 calculate 工具。","input":"(3+4)*12 等于多少？","tools":["calculate"]},
+  "idempotency_key":"agent-live-1"}'
+```
+
+注意：
+
+- 端点需要支持 Chat Completions 的 function calling，工具才能用。
+- OpenCode 的免费模型只能在 OpenCode 客户端里用，走 OpenAI 兼容接口会收到 403（[官方说明](https://opencode.ai/docs/console/harnesses/)），所以不能给 `PA_AGENT_MODEL=openai` 用。
+- SDK 也支持通过 LiteLLM（`openai-agents[litellm]`）接其他服务，但官方说明这是 beta、尽力而为的支持（[models 文档](https://openai.github.io/openai-agents-python/models/)），这里没有接入。
+
 ## 测试
 
 ```bash
@@ -143,6 +236,8 @@ python scripts/render_test_report.py      # 把 test-results/acceptance-metrics.
 
 最近一次的实测数字见 [docs/m0-test-report.md](docs/m0-test-report.md)。
 
+agent.run 的测试（`tests/test_agents_unit.py` 有 11 个离线单测，`tests/test_agent_acceptance.py` 有 4 个进程级验收）覆盖工具调用、白名单、payload 校验、max_turns 超限后失败、重试和进死信、effect 去重、租约丢失和超时取消 Runner、persist 前后的 kill -9，以及 tracing 不上传。实测数字见 [docs/m0.2-agents-test-report.md](docs/m0.2-agents-test-report.md) 和 `test-results/agent-metrics.json`。
+
 ## 代码出处
 
 - `personal_agent/core/storage.py` 中的 `atomic_json`、`digest`、`seal`、`verify` 改编自同一作者的 [security-agent](https://github.com/Atituiset/security-agent) 中的 `security_agent/core/storage.py`。
@@ -156,7 +251,9 @@ security-agent 仓库没有附许可证文件，这些代码由原作者在本�
 
 | 里程碑 | 内容 |
 |---|---|
-| **M0（当前）** | Postgres 队列、lease、心跳、reaper、persist-then-ack、幂等、fencing、`demo.summarize`、6 条验收测试 |
+| **M0** | Postgres 队列、lease、心跳、reaper、persist-then-ack、幂等、fencing、`demo.summarize`、6 条验收测试 |
+| **M0.1** | OpenCode CLI 适配器（`PA_LLM=opencode`），`RateLimited` + `retry_after`，通用调用账本 |
+| **M0.2（当前）** | OpenAI Agents SDK 执行后端：`agent.run` 任务、工具白名单、effect 去重、`attempts.usage`、本地 tracing |
 | **M1** | 接入真实 LLM 后端（包括复用 security-agent 的 Claude Agent SDK、OpenCode、Hermes 适配器）；按 llm、io、cpu 拆分 worker pool；按模型同时限制 RPM 和 TPM 的双令牌桶；token 和费用记账；DLQ 命令行（`dlq ls/show/requeue`）；Scheduler（cron，`Asia/Shanghai`，触发幂等）；真实任务：资讯采集与摘要、论文精读 |
 | **M2** | 用 `parent_job_id` 实现 fan-out/fan-in 和线性依赖；长任务的 `step` 断点续跑；人工审批（`waiting_human`，审批过期不自动执行）；有界队列、准入控制、优先级与老化、用户级和任务类型级配额 |
 | **M3** | OpenTelemetry trace 和 metrics（6 个队列指标加 token 和成本）、看板；事件源（GitHub webhook、RSS）；`code.review` 任务接入 security-agent；扩展故障注入矩阵 |

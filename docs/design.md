@@ -73,6 +73,41 @@ flowchart LR
 - 三个 pool 是**同一个代码库、不同的启动参数**（`personal-agent worker --pool llm`），在 Railway 上部署成三个 service，各自扩容。
 - Orchestrator 不是单独的进程，而是 API、Scheduler、Event 和 Worker 都会调用的一个库。Worker 执行父任务时也可以调用它来派生子任务。
 
+### 2.1 Agent 执行层：OpenAI Agents SDK（M0.2 起）
+
+用户选定 [OpenAI Agents SDK](https://openai.github.io/openai-agents-python/)（`openai-agents`）作为 agent 的执行后端。它在架构里的位置是 **LLM Worker 里、handler 之下的一层**：worker 只把整个 `Runner.run` 当成一次 process 步骤，不知道里面有几轮模型调用和工具调用；SDK 也不知道队列的存在。
+
+```mermaid
+flowchart TB
+    subgraph Q["队列层（personal-agent 自己负责）"]
+        L["lease · heartbeat · fencing"] -->|"process"| HD["handler：agent.run"]
+        HD -->|"结果"| PA["persist（receipt + attempts.usage）"]
+        PA -->|"同一事务"| ACK["ACK"]
+        F["失败 → retry_wait / dead_letters"]
+    end
+    subgraph S["Agent 执行层（Agents SDK 负责）"]
+        RUN["Runner.run<br/>max_turns · RunConfig · RunHooks"] -->|"Model.get_response"| MOD["FakeAgentModel / OpenAIChatCompletionsModel"]
+        RUN -->|"function_tool"| TL["白名单工具"]
+    end
+    HD -->|"Runner.run(context=AgentRunContext)"| RUN
+    TL -->|"有副作用：ctx.effect"| EF[("effects")]
+    RUN -->|"on_llm_start / on_llm_end"| LG["调用账本 · usage"]
+    RUN -->|"MaxTurnsExceeded / 超时 / 限流"| F
+```
+
+边界约定：
+
+| 关注点 | 由谁负责 | 做法 |
+|---|---|---|
+| 重试、退避、死信 | 队列 | SDK 的模型重试默认关闭（需显式配置 `ModelSettings(retry=...)`），真实模型客户端 `max_retries=0`；SDK 异常映射为 `Retryable` / `Fatal` / `RateLimited` / `max_turns` |
+| 崩溃恢复 | 队列 | persist 之后崩溃直接用 receipt ACK，不重跑 Runner；persist 之前崩溃会重跑 Runner |
+| 工具副作用 | 工具 + `ctx.effect` | 副作用工具用 `job_id + 参数哈希` 作为 effect 键，重跑时直接返回第一次的回执；"started 但没有回执" 交给人工确认，中止这次运行 |
+| 轮数与时间 | 两者 | `max_turns`（payload 指定，有上限）；整个 run 的时间预算不超过 payload、任务超时和 `deadline_at`；单次模型调用用 `ModelSettings.timeout`；租约丢失时取消 run |
+| 用量 | SDK → 队列 | `RunHooks.on_llm_end` 拿到每次调用的 `Usage`，写进 `attempts.usage`；`result.context_wrapper.usage` 是整次 run 的汇总 |
+| Tracing | 队列配置 SDK | 默认关闭；`local` 模式用本地 JSONL 处理器替换默认的 OpenAI 导出器，不上传 |
+
+为什么不用 SDK 自带的会话（Session）或 `RunState` 做断点续跑：M0.2 的 agent 任务都很短，以“整次 run”为单位重做的成本可以接受；副作用已经通过 effects 去重。之后如果需要在长 run 中途做 checkpoint，可以用 `RunResult.to_state()` 序列化的状态配合 `JobContext.step` 落盘（[官方说明](https://openai.github.io/openai-agents-python/running_agents/)：`Runner.run` 可以接收 `RunState` 恢复运行），这留到 M2。
+
 ---
 
 ## 3. 任务消息 schema

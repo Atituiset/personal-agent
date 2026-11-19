@@ -2,6 +2,7 @@
 
 PA_LLM=fake      确定性假模型（默认）
 PA_LLM=opencode  OpenCode CLI（可用 OpenCode 免费模型，见 opencode_cli.py）
+PA_LLM=agents    OpenAI Agents SDK（模型由 PA_AGENT_MODEL 决定：fake 或 openai，见 agents_sdk.py）
 PA_LLM=openai    任意 OpenAI 兼容 /chat/completions（包括 OpenCode Console 付费模型）
 PA_LLM_LEDGER    可选：记录每次真实调用的账本文件
 """
@@ -18,6 +19,9 @@ def build_llm() -> LLMExecutor:
     elif name == "opencode":
         from .opencode_cli import OpenCodeCLI
         llm = OpenCodeCLI()
+    elif name == "agents":
+        from .agents_sdk import AgentsLLM
+        return AgentsLLM()       # 账本由 Agents SDK 的 hooks 写，不再套 LedgerLLM
     elif name == "openai":
         from .openai_compat import OpenAICompatLLM
         llm = OpenAICompatLLM()

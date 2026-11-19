@@ -102,6 +102,7 @@ class Worker:
         lost = asyncio.Event()
         hb = asyncio.create_task(self._heartbeat(job, lost))
         jid, attempt = job["job_id"], job["attempt"]
+        ctx = None
         _event(event="leased", job_id=jid, attempt=attempt, task_type=job["task_type"], worker=self.worker_id)
         try:
             # 1) 幂等检查：之前的 attempt 已经 persist 但没 ACK → 直接用它的 receipt ACK
@@ -124,7 +125,7 @@ class Worker:
             # 3) Persist：先写内容寻址产物，再写 durable receipt（带 fencing）
             result_ref = self.store.put_json({"job_id": str(jid), "attempt": attempt, "result": result,
                                               "usage": ctx.usage})
-            await self.broker.persist_receipt(job, self.worker_id, result_ref)
+            await self.broker.persist_receipt(job, self.worker_id, result_ref, ctx.usage)
             await pause_point("after_persist", jid)
 
             # 4) ACK：同一事务里写结果 + 改状态（带 fencing）
@@ -133,20 +134,21 @@ class Worker:
         except LeaseLost as exc:
             _event(event="fenced", job_id=jid, attempt=attempt, detail=str(exc))
         except IntegrityError as exc:
-            await self._fail(job, Fatal(str(exc)))
+            await self._fail(job, Fatal(str(exc)), ctx)
         except JobError as exc:
-            await self._fail(job, exc)
+            await self._fail(job, exc, ctx)
         except asyncio.TimeoutError:
-            await self._fail(job, Retryable("handler timed out"))
+            await self._fail(job, Retryable("handler timed out"), ctx)
         except Exception as exc:                                       # 未分类：按可重试处理
-            await self._fail(job, Retryable(f"{type(exc).__name__}: {exc}"))
+            await self._fail(job, Retryable(f"{type(exc).__name__}: {exc}"), ctx)
         finally:
             hb.cancel()
             self.slots.release()
 
-    async def _fail(self, job, err: JobError) -> None:
+    async def _fail(self, job, err: JobError, ctx=None) -> None:
         try:
-            state = await self.broker.fail(job, self.worker_id, err, self.backoff_base)
+            state = await self.broker.fail(job, self.worker_id, err, self.backoff_base,
+                                           usage=ctx.usage if ctx is not None else None)
             _event(event="failed", job_id=job["job_id"], attempt=job["attempt"], state=state, error=err.to_json())
         except LeaseLost as exc:
             _event(event="fenced", job_id=job["job_id"], attempt=job["attempt"], detail=str(exc))

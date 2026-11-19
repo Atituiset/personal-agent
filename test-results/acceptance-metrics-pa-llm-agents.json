@@ -1,0 +1,123 @@
+{
+  "1_submit_latency": {
+    "requests": 100,
+    "p50_ms": 2.36,
+    "p95_ms": 3.36,
+    "max_ms": 19.02,
+    "mean_ms": 2.57,
+    "threshold_ms": 100
+  },
+  "2_idempotency": {
+    "sequential_same_job": true,
+    "different_payload_status": 409,
+    "concurrent_requests": 20,
+    "distinct_job_ids": 1,
+    "dedup_true_count": 19,
+    "rows_in_db": 2
+  },
+  "3_kill_before_persist": {
+    "job_id": "ee4dfd9f-e451-4d79-ae50-9258ef9a51a3",
+    "kill_signal": "SIGKILL",
+    "lease_seconds": 2,
+    "final_state": "succeeded",
+    "final_attempt": 2,
+    "llm_calls_before_kill": 1,
+    "llm_calls_total": 2,
+    "attempts": [
+      {
+        "attempt": 1,
+        "worker": "worker-A",
+        "outcome": "lease_expired"
+      },
+      {
+        "attempt": 2,
+        "worker": "worker-B",
+        "outcome": "acked"
+      }
+    ],
+    "result_from_attempt": 2,
+    "kill_to_succeeded_s": 2.15
+  },
+  "4_kill_after_persist": {
+    "job_id": "3862eaca-237e-41b2-b7c7-90e2452e2d84",
+    "kill_signal": "SIGKILL",
+    "lease_seconds": 2,
+    "final_state": "succeeded",
+    "final_attempt": 2,
+    "llm_calls_before_kill": 1,
+    "llm_calls_total": 1,
+    "attempts": [
+      {
+        "attempt": 1,
+        "worker": "worker-A",
+        "outcome": "persisted"
+      },
+      {
+        "attempt": 2,
+        "worker": "worker-B",
+        "outcome": "acked"
+      }
+    ],
+    "result_from_attempt": 1,
+    "kill_to_succeeded_s": 2.4
+  },
+  "5a_fencing_process": {
+    "job_id": "641d4a19-7e58-4c33-862c-eaa5e2d32be3",
+    "final_state": "succeeded",
+    "final_attempt": 2,
+    "result_written_by_attempt": 2,
+    "attempts": [
+      {
+        "attempt": 1,
+        "worker": "worker-A",
+        "outcome": "fenced"
+      },
+      {
+        "attempt": 2,
+        "worker": "worker-B",
+        "outcome": "acked"
+      }
+    ],
+    "a_fenced_log": {
+      "event": "fenced",
+      "job_id": "641d4a19-7e58-4c33-862c-eaa5e2d32be3",
+      "attempt": 1,
+      "detail": "persist rejected for 641d4a19-7e58-4c33-862c-eaa5e2d32be3 attempt 1"
+    },
+    "sigstop_to_b_succeeded_s": 1.66
+  },
+  "5b_fencing_broker": {
+    "persist_after_expiry": "rejected",
+    "ack_after_expiry": "rejected",
+    "heartbeat_after_expiry": false,
+    "new_attempt": 2,
+    "old_ack_after_re_lease": "rejected",
+    "old_fail_after_re_lease": "rejected",
+    "new_ack": "accepted"
+  },
+  "6_two_workers_200": {
+    "jobs": 200,
+    "states": {
+      "succeeded": 200
+    },
+    "attempt_rows": 200,
+    "max_attempts_per_job": 1,
+    "llm_calls": 200,
+    "distinct_jobs_called": 200,
+    "max_calls_per_job": 1,
+    "missing_jobs": 0,
+    "acked_by_worker": {
+      "worker-2": 104,
+      "worker-1": 96
+    },
+    "concurrency_per_worker": 8,
+    "fake_llm_delay_ms": 20,
+    "wall_clock_s": 1.9,
+    "throughput_jobs_per_s": 105.1
+  },
+  "_meta": {
+    "recorded_at_unix": 1795103341.4168122,
+    "python": "3.12.16",
+    "exitstatus": 0
+  }
+}

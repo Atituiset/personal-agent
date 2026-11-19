@@ -23,6 +23,12 @@ METRICS: dict = {}
 
 
 def pytest_sessionfinish(session, exitstatus):
+    if AGENT_METRICS:
+        out = ROOT / "test-results" / "agent-metrics.json"
+        out.parent.mkdir(exist_ok=True)
+        AGENT_METRICS["_meta"] = {"recorded_at_unix": time.time(), "python": sys.version.split()[0],
+                                  "exitstatus": int(exitstatus)}
+        out.write_text(json.dumps(AGENT_METRICS, ensure_ascii=False, indent=2) + "\n")
     if METRICS:
         out = ROOT / "test-results" / "acceptance-metrics.json"
         out.parent.mkdir(exist_ok=True)
@@ -60,20 +66,28 @@ def metrics():
     return METRICS
 
 
+AGENT_METRICS: dict = {}
+
+
+@pytest.fixture
+def agent_metrics():
+    return AGENT_METRICS
+
+
 def sql(db_url, query, params=()):
     with psycopg.connect(db_url, autocommit=True) as conn:
         return conn.execute(query, params).fetchall()
 
 
-def enqueue_many(env, payloads, prefix="t"):
+def enqueue_many(env, payloads, prefix="t", task_type="demo.summarize", max_attempts=5):
     async def go():
         broker = await PgBroker(env["db"], max_size=4).open()
         store = ArtifactStore(env["artifacts"])
         try:
             ids = []
             for i, payload in enumerate(payloads):
-                job, _ = await broker.enqueue(task_type="demo.summarize", payload_ref=store.put_json(payload),
-                                              idempotency_key=f"{prefix}-{i}")
+                job, _ = await broker.enqueue(task_type=task_type, payload_ref=store.put_json(payload),
+                                              idempotency_key=f"{prefix}-{i}", max_attempts=max_attempts)
                 ids.append(str(job["job_id"]))
             return ids
         finally:

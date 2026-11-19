@@ -16,6 +16,21 @@ def _tokens(text: str) -> int:
     return len(re.findall(r"\w+|[^\w\s]", text))
 
 
+def fake_summary(prompt: str, max_output_tokens: int = 256) -> str:
+    """取前几句（最多 3 句，受 token 预算限制）：确定性的“摘要”。"""
+    sentences = [s.strip() for s in re.split(r"(?<=[。！？.!?])\s*", prompt) if s.strip()]
+    picked, budget = [], max_output_tokens
+    for sentence in sentences:
+        cost = _tokens(sentence)
+        if picked and cost > budget:
+            break
+        picked.append(sentence)
+        budget -= cost
+        if len(picked) >= 3:
+            break
+    return " ".join(picked) if picked else ""
+
+
 class FakeLLM:
     def __init__(self, delay_ms: float | None = None, ledger: str | None = None):
         self.delay = (float(os.environ.get("PA_FAKE_LLM_DELAY_MS", "20")) if delay_ms is None else delay_ms) / 1000
@@ -37,17 +52,7 @@ class FakeLLM:
         self._record(request)            # 先记账再返回：模拟“请求已发出、费用已产生”
         if self.delay:
             await asyncio.sleep(self.delay)
-        sentences = [s.strip() for s in re.split(r"(?<=[。！？.!?])\s*", request.prompt) if s.strip()]
-        picked, budget = [], request.max_output_tokens
-        for sentence in sentences:
-            cost = _tokens(sentence)
-            if picked and cost > budget:
-                break
-            picked.append(sentence)
-            budget -= cost
-            if len(picked) >= 3:
-                break
-        text = " ".join(picked) if picked else ""
+        text = fake_summary(request.prompt, request.max_output_tokens)
         return LLMResult(text=text, model=request.model,
                          usage={"input_tokens": _tokens(request.system + request.prompt),
                                 "output_tokens": _tokens(text)},

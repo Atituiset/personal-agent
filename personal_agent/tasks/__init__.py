@@ -21,3 +21,4 @@ def register(spec: TaskSpec) -> TaskSpec:
 
 
 from . import demo  # noqa: E402,F401  注册内置任务
+from . import agent  # noqa: E402,F401  agent.run（OpenAI Agents SDK）

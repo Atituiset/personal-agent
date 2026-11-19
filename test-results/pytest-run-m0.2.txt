@@ -1,0 +1,24 @@
+============================= test session starts ==============================
+platform linux -- Python 3.12.16, pytest-9.2.0, pluggy-1.7.0 -- ./.venv/bin/python
+rootdir: .
+configfile: pyproject.toml
+plugins: anyio-4.16.0
+collecting ... collected 15 items
+
+tests/test_agents_unit.py::test_tool_call_then_final_answer PASSED       [  6%]
+tests/test_agents_unit.py::test_max_turns_exceeded_is_retryable_and_usage_kept PASSED [ 13%]
+tests/test_agents_unit.py::test_tool_whitelist PASSED                    [ 20%]
+tests/test_agents_unit.py::test_payload_validation PASSED                [ 26%]
+tests/test_agents_unit.py::test_effect_dedup_across_reruns PASSED        [ 33%]
+tests/test_agents_unit.py::test_effect_started_without_receipt_stops_the_run PASSED [ 40%]
+tests/test_agents_unit.py::test_lease_lost_cancels_run PASSED            [ 46%]
+tests/test_agents_unit.py::test_run_budget_timeout PASSED                [ 53%]
+tests/test_agents_unit.py::test_safe_eval PASSED                         [ 60%]
+tests/test_agents_unit.py::test_agents_llm_matches_fake_llm PASSED       [ 66%]
+tests/test_agents_unit.py::test_tracing_is_off_by_default_and_local_mode_never_uploads PASSED [ 73%]
+tests/test_agent_acceptance.py::test_agent_run_with_tools_end_to_end PASSED [ 80%]
+tests/test_agent_acceptance.py::test_agent_max_turns_fails_retries_then_dead PASSED [ 86%]
+tests/test_agent_acceptance.py::test_agent_kill9_before_persist_reruns_runner_but_not_effect PASSED [ 93%]
+tests/test_agent_acceptance.py::test_agent_kill9_after_persist_does_not_rerun_runner PASSED [100%]
+
+============================= 15 passed in 15.73s ==============================

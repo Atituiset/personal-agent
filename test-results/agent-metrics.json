@@ -1,0 +1,124 @@
+{
+  "agent_e2e": {
+    "final_state": "succeeded",
+    "attempt": 1,
+    "seconds_enqueue_to_succeeded": 1.37,
+    "tool_calls": [
+      [
+        "calculate",
+        "84"
+      ],
+      [
+        "save_note",
+        "{\"saved\": true, \"sha256\": \"4f8667a2f0cbbccc57462e9677502b5ee9039ad1a3714d3e57eb3deb1cd790b8\", \"attempt\": 1}"
+      ],
+      [
+        "read_artifact",
+        "Leases expire and jobs are redelivered."
+      ]
+    ],
+    "final_output": "工具结果：calculate → 84；save_note → {\"saved\": true, \"sha256\": \"4f8667a2f0cbbccc57462e9677502b5ee9039ad1a3714d3e57eb3deb1cd790b8\", \"attempt\": 1}；read_artifact → Leases expire and jobs are redelivered.",
+    "usage": {
+      "input_tokens": 498,
+      "output_tokens": 382,
+      "requests": 2,
+      "total_tokens": 880
+    },
+    "attempts_usage_rows": 2,
+    "ledger_calls": 2,
+    "effects": 1
+  },
+  "agent_max_turns": {
+    "max_turns": 3,
+    "max_attempts": 2,
+    "final_state": "dead",
+    "dead_letter": {
+      "reason": "max_turns",
+      "attempts": 2
+    },
+    "attempts": [
+      {
+        "attempt": 1,
+        "outcome": "failed",
+        "error_kind": "max_turns",
+        "model_calls": 3,
+        "total_tokens": 507
+      },
+      {
+        "attempt": 2,
+        "outcome": "failed",
+        "error_kind": "max_turns",
+        "model_calls": 3,
+        "total_tokens": 507
+      }
+    ],
+    "ledger_calls": 6
+  },
+  "agent_kill_before_persist": {
+    "job_id": "362aeda3-0b25-49eb-beae-da84b431d3de",
+    "kill_signal": "SIGKILL",
+    "final_state": "succeeded",
+    "final_attempt": 2,
+    "model_calls_before_kill": 2,
+    "model_calls_total": 4,
+    "attempts": [
+      {
+        "attempt": 1,
+        "worker": "worker-A",
+        "outcome": "lease_expired",
+        "model_calls_recorded": 0
+      },
+      {
+        "attempt": 2,
+        "worker": "worker-B",
+        "outcome": "acked",
+        "model_calls_recorded": 2
+      }
+    ],
+    "result_from_attempt": 2,
+    "effects_rows": 1,
+    "effect_receipt_attempt": 1,
+    "save_note_output": {
+      "saved": true,
+      "sha256": "c9604215198d9363a750dba1cb8fcb236ad160bc983c000ab9a4fc385b5d2aae",
+      "attempt": 1
+    },
+    "kill_to_succeeded_s": 2.33
+  },
+  "agent_kill_after_persist": {
+    "job_id": "942eba51-053c-4c10-9625-93e8e4a9eba1",
+    "kill_signal": "SIGKILL",
+    "final_state": "succeeded",
+    "final_attempt": 2,
+    "model_calls_before_kill": 2,
+    "model_calls_total": 2,
+    "attempts": [
+      {
+        "attempt": 1,
+        "worker": "worker-A",
+        "outcome": "persisted",
+        "model_calls_recorded": 2
+      },
+      {
+        "attempt": 2,
+        "worker": "worker-B",
+        "outcome": "acked",
+        "model_calls_recorded": 0
+      }
+    ],
+    "result_from_attempt": 1,
+    "effects_rows": 1,
+    "effect_receipt_attempt": 1,
+    "save_note_output": {
+      "saved": true,
+      "sha256": "f372ae759609c9f4724f6615bef7ae24809682a37f59b940c6297a74a9552199",
+      "attempt": 1
+    },
+    "kill_to_succeeded_s": 2.4
+  },
+  "_meta": {
+    "recorded_at_unix": 1795103425.64385,
+    "python": "3.12.16",
+    "exitstatus": 0
+  }
+}

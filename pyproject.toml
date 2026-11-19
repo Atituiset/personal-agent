@@ -15,6 +15,7 @@ dependencies = [
   "psycopg[binary]>=3.2",
   "psycopg-pool>=3.2",
   "httpx>=0.27",
+  "openai-agents>=0.25,<0.26",   # agent.run / PA_LLM=agents；0.25.0 上测试过
 ]
 
 [project.optional-dependencies]
