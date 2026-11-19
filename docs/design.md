@@ -54,12 +54,12 @@ flowchart LR
     API --> ORC
     SCH --> ORC
     EVT --> ORC
-    ORC -->|enqueue（事务内）| BROKER[("Broker<br/>Postgres jobs 表<br/>SKIP LOCKED + lease")]
-    BROKER -->|lease| LLM["LLM Worker Pool<br/>asyncio 高并发<br/>RPM/TPM 令牌桶"]
-    BROKER -->|lease| IO["I/O Worker Pool<br/>抓取 · 下载 · API 调用"]
-    BROKER -->|lease| CPU["CPU Worker Pool<br/>多进程：PDF 解析 · ffmpeg · 代码审查"]
-    LLM & IO & CPU -->|写产物| ART[("Result / Artifact Store<br/>内容寻址：本地卷或 S3 兼容桶")]
-    LLM & IO & CPU -->|persist-then-ack| STATE[("State Store<br/>Postgres：jobs · attempts · checkpoints<br/>dead_letters · effects · usage")]
+    ORC -->|"enqueue（事务内）"| BROKER[("Broker<br/>Postgres jobs 表<br/>SKIP LOCKED + lease")]
+    BROKER -->|"lease"| LLM["LLM Worker Pool<br/>asyncio 高并发<br/>RPM/TPM 令牌桶"]
+    BROKER -->|"lease"| IO["I/O Worker Pool<br/>抓取 · 下载 · API 调用"]
+    BROKER -->|"lease"| CPU["CPU Worker Pool<br/>多进程：PDF 解析 · ffmpeg · 代码审查"]
+    LLM & IO & CPU -->|"写产物"| ART[("Result / Artifact Store<br/>内容寻址：本地卷或 S3 兼容桶")]
+    LLM & IO & CPU -->|"persist-then-ack"| STATE[("State Store<br/>Postgres：jobs · attempts · checkpoints<br/>dead_letters · effects · usage")]
     BROKER --- STATE
     REAPER["Reaper<br/>回收过期 lease · 激活延迟任务"] --> BROKER
     STATE --> OBS["可观测性<br/>OpenTelemetry traces/metrics<br/>队列指标 · token · 成本"]

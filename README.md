@@ -15,14 +15,14 @@
 
 ```mermaid
 flowchart LR
-    C["客户端 / 脚本"] -->|POST /jobs| API["FastAPI 入口<br/>只写库，立即返回 job_id"]
-    C -->|GET /jobs/{id}| API
-    API -->|payload 写入| ART[("Artifact Store<br/>sha256 内容寻址")]
-    API -->|INSERT … ON CONFLICT<br/>idempotency_key| PG[("Postgres<br/>jobs · attempts · checkpoints<br/>dead_letters · effects")]
+    C["客户端 / 脚本"] -->|"POST /jobs"| API["FastAPI 入口<br/>只写库，立即返回 job_id"]
+    C -->|"GET /jobs/{id}"| API
+    API -->|"payload 写入"| ART[("Artifact Store<br/>sha256 内容寻址")]
+    API -->|"INSERT … ON CONFLICT<br/>idempotency_key"| PG[("Postgres<br/>jobs · attempts · checkpoints<br/>dead_letters · effects")]
     subgraph W["Worker 进程（可多个）"]
         L["lease<br/>FOR UPDATE SKIP LOCKED<br/>attempt+1 = fencing token"] --> IDEM{"已有 receipt？"}
-        IDEM -->|是| ACK
-        IDEM -->|否| P["process<br/>handler → LLMExecutor"]
+        IDEM -->|"是"| ACK
+        IDEM -->|"否"| P["process<br/>handler → LLMExecutor"]
         P --> PER["persist<br/>产物 + receipt（fenced）"]
         PER --> ACK["ACK（同一事务）<br/>result_ref + succeeded（fenced）"]
         HB["heartbeat 续租"] -.-> L
