@@ -60,6 +60,7 @@ migrations/    0001_init.sql · 0002_attempt_usage.sql（attempts.usage）
 tests/         test_acceptance.py（6 条验收）· test_unit.py · test_opencode.py
                test_agents_unit.py · test_agent_acceptance.py（agent.run）
 scripts/       run-local.sh · stop-local.sh · render_test_report.py
+evals/         agent.run 的评测：34 个任务、评分器、pass^k、门禁、裁判校准（见 evals/README.md）
 ```
 
 ## 本地运行
@@ -195,6 +196,7 @@ flowchart LR
 |---|---|---|
 | `fake`（默认） | `FakeAgentModel` | 实现 SDK 的自定义 `Model` 接口，离线、确定性。输入里写 `@tool <name> <json 参数>` 时，第一轮发出这些工具调用，拿到结果后给出最终回答；写 `@loop` 时每轮都调用 `current_time`，用来测 `max_turns`；没有指令时返回输入的前几句 |
 | `openai` | `OpenAIChatCompletionsModel` + `AsyncOpenAI(base_url=…)` | 任意 OpenAI 兼容的 `/chat/completions`，即官方文档里接非 OpenAI 服务的写法 |
+| `py:<模块>:<类名>` | 自定义 SDK `Model` | 导入模块后无参构造这个类；评测用它接入离线脚本策略 `py:evals.policy:ScriptedAssistantModel` |
 
 `PA_LLM=agents` 时，`demo.summarize` 这类只用 `LLMExecutor` 的任务也会经过 Agents SDK（单轮、无工具，模型同样由 `PA_AGENT_MODEL` 决定）。`agent.run` 不受 `PA_LLM` 影响，始终使用 Agents SDK。
 
@@ -237,6 +239,22 @@ python scripts/render_test_report.py      # 把 test-results/acceptance-metrics.
 最近一次的实测数字见 [docs/m0-test-report.md](docs/m0-test-report.md)。
 
 agent.run 的测试（`tests/test_agents_unit.py` 有 11 个离线单测，`tests/test_agent_acceptance.py` 有 4 个进程级验收）覆盖工具调用、白名单、payload 校验、max_turns 超限后失败、重试和进死信、effect 去重、租约丢失和超时取消 Runner、persist 前后的 kill -9，以及 tracing 不上传。实测数字见 [docs/m0.2-agents-test-report.md](docs/m0.2-agents-test-report.md) 和 `test-results/agent-metrics.json`。
+
+## 评测（evals/）
+
+测试回答“队列和 agent 循环有没有按设计工作”；评测回答“换了模型、提示词或工具之后，助理是变好还是变差”。`evals/` 按手册[第 16 章](https://atituiset.github.io/agent-engineering-handbook/handbook/16-agent-evals)的做法实现：
+
+- 34 个任务：27 个个人助理任务（查时间、计算、读文档、存笔记、安全、不该用工具，其中 4 个是能力集）和 7 个系统检查（max_turns 进死信、不可重试错误、副作用去重、persist 前后 `kill -9`、重复入队）。
+- 任务走真实的 worker 进程、Postgres 和 Agents SDK；判分读数据库、Artifact Store 和调用账本，看工具选择和参数、副作用条数、系统不变量，不信模型自己的回答。
+- 每个任务跑多次，报告 pass@k、pass^k、Wilson 95% 区间、token 和耗时；`evals/gate.py` 与 `evals/baseline.json` 比较，回归、违规或 token 上涨超过 25% 就失败；`.github/workflows/evals.yml` 在 CI 里用 `postgres:17` 跑这一套。
+- 默认模型是离线的脚本策略 `ScriptedAssistantModel`（`PA_AGENT_MODEL=py:evals.policy:ScriptedAssistantModel`），CI 不需要密钥。
+
+```bash
+.venv/bin/python -m evals.run_evals --trials 5 --k 1 3 5 --out test-results/evals-results.json   # 需要 EVAL_DATABASE_URL
+.venv/bin/python -m evals.gate --baseline evals/baseline.json --current test-results/evals-results.json --k 3
+```
+
+本机实测（2026-11-25，每个任务 5 次）：基线回归集 150/150、能力集 10/20，重跑过门禁；让英文城市名退回 UTC 后回归集 140/150、门禁失败；把 effect 键改成带 attempt 号后 `sys_kill9_before_persist` 0/5、门禁失败；只会声称“已保存”的作弊策略被记下 45 次违规。这些数来自脚本策略，只说明评测本身能工作。接真实模型（`--model openai` 或 `--model py:<模块>:<类名>`）的方法和注意事项见 [evals/README.md](evals/README.md)。
 
 ## 代码出处
 

@@ -6,6 +6,7 @@
 
 模型（PA_AGENT_MODEL）：
 - fake（默认）：`FakeAgentModel`，实现 SDK 的自定义 `Model` 接口，离线、确定性。
+- py:<模块>:<类名>：任意自定义 SDK Model（评测里的脚本策略就是这样接入的）。
 - openai：`OpenAIChatCompletionsModel` + `AsyncOpenAI(base_url=PA_LLM_BASE_URL)`，
   适用于任意 OpenAI 兼容的 /chat/completions。key 依次取 PA_LLM_API_KEY、OPENAI_API_KEY、OPENCODE_API_KEY。
   官方文档：https://openai.github.io/openai-agents-python/models/
@@ -251,7 +252,16 @@ def build_agent_model() -> tuple[Model, str]:
         # max_retries=0：重试交给队列（带退避、死信、账本），避免 SDK 和队列双重重试
         client = AsyncOpenAI(base_url=base_url, api_key=key, max_retries=0)
         return OpenAIChatCompletionsModel(model=model, openai_client=client), model
-    raise ValueError(f"unsupported PA_AGENT_MODEL: {kind} (use fake or openai)")
+    if kind.startswith("py:"):
+        # 自定义 SDK Model：PA_AGENT_MODEL=py:<模块>:<类名>，类要能无参构造。
+        # 评测用它接入 evals/policy.py 的脚本策略；也可以接你自己的 Model 实现。
+        import importlib
+        module, _, attr = kind[3:].partition(":")
+        if not module or not attr:
+            raise ValueError(f"PA_AGENT_MODEL={kind}: use py:<module>:<ClassName>")
+        model = getattr(importlib.import_module(module), attr)()
+        return model, getattr(model, "name", attr)
+    raise ValueError(f"unsupported PA_AGENT_MODEL: {kind} (use fake, openai or py:<module>:<ClassName>)")
 
 
 # ---------------------------------------------------------------- 账本与 usage

@@ -1,0 +1,55 @@
+# Agent evals: runs evals/tasks against real worker processes and Postgres with the
+# offline scripted policy (no model key), grades each trial from the database, the
+# artifact store and the call ledger, and fails if results drop below evals/baseline.json.
+# See evals/README.md.
+name: evals
+
+on:
+  push:
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  evals:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    services:
+      postgres:
+        image: postgres:17
+        env:
+          POSTGRES_USER: personal_agent
+          POSTGRES_PASSWORD: personal_agent
+          POSTGRES_DB: personal_agent_eval
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U personal_agent"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+    env:
+      EVAL_DATABASE_URL: postgresql://personal_agent:personal_agent@127.0.0.1:5432/personal_agent_eval
+      PA_AGENTS_TRACING: "off"
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Install
+        run: python -m pip install -e '.[dev]'
+      - name: Harness unit tests (metrics, graders, gate, judge)
+        run: python -m pytest -q tests/test_evals_unit.py
+      - name: Judge calibration (rubric judge must agree with human labels)
+        run: python -m evals.judge.calibrate
+      - name: Eval suite (scripted policy, 5 trials per task, isolated grading)
+        run: python -m evals.run_evals --trials 5 --k 1 3 5 --out test-results/evals-results.json
+      - name: Regression gate against evals/baseline.json
+        run: python -m evals.gate --baseline evals/baseline.json --current test-results/evals-results.json --k 3
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: eval-results
+          path: test-results/evals-results.json
