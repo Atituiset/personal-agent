@@ -1,7 +1,7 @@
 ---
 owner: "@Atituiset"
 last_reviewed: 2026-11-26
-code_paths: [personal_agent/queue/broker.py, personal_agent/queue/worker.py, personal_agent/core/context.py, tests/test_acceptance.py, tests/test_agent_acceptance.py, evals/tasks/system.jsonl]
+code_paths: [scripts/runtime_check.py, scripts/runtime_budgets.json, personal_agent/queue/stats.py, personal_agent/queue/broker.py, personal_agent/queue/worker.py, personal_agent/core/context.py, tests/test_acceptance.py, tests/test_agent_acceptance.py, evals/tasks/system.jsonl]
 ---
 # 可靠性：不变量和怎么验证
 
@@ -24,3 +24,26 @@ code_paths: [personal_agent/queue/broker.py, personal_agent/queue/worker.py, per
 
 评测里的 7 个系统检查（`evals/tasks/system.jsonl`）用真实 worker 进程和 Postgres 跑，判分只读数据库、产物和调用账本，
 细节见 [evals/README.md](evals/README.md)。
+
+## 运行时预算（本地和 CI 都能验证）
+
+`make dev-up` 起一个隔离实例（自己的 Postgres 库、worker、API，JSON 日志在 `var/dev/<name>/logs/`），
+`make runtime-check` 对它检查下面的预算，并把 7 个系统检查跑在实例自己的评测库上。阈值在
+`scripts/runtime_budgets.json`，是我们选定的上限，不是测量值；实测数字写在每次运行的 `var/dev/<name>/runtime-check.md`。
+
+| 预算 | 阈值 | 怎么量 |
+| --- | --- | --- |
+| 提交延迟 p95 | 100 ms（沿用 M0 验收标准 1） | 客户端计时，逐条 `POST /jobs` |
+| 入队 → 开始执行 p95 | 1000 ms | `attempts.started_at − jobs.enqueued_at`（第 1 次 attempt） |
+| 入队 → ACK p95 | 2000 ms | `jobs.finished_at − jobs.enqueued_at`（succeeded） |
+| 探针任务死信 / 重试 | 0 / 0 | `jobs.state`、`jobs.attempt` |
+| 结构化日志覆盖 | 每个探针任务都有 `leased`、`acked` 事件 | `logs/worker.jsonl` |
+| 系统检查 | 7 个任务 × 3 次全部通过 | `evals.run_evals --only <系统检查>` |
+
+探针用 fake LLM（`PA_FAKE_LLM_DELAY_MS` 默认 20 ms）和一个并发 4 的 worker，所以延迟数字只反映队列本身，
+不代表接真实模型后的速度。
+
+排查时：`make dev-status`（进程 + 指标快照）、`make metrics`（`personal-agent metrics` 的 JSON，
+包括队列深度、入队到开始/ACK 的 p50/p95、attempt 结果分布、死信原因、token 总数）、
+`make logs ARGS="--job <job_id>"`（一个任务的完整事件时间线）。CI 的 `checks / runtime` job 跑同样的检查，
+报告和日志作为 artifact 上传。

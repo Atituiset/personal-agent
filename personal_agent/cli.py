@@ -1,12 +1,11 @@
-"""命令行：migrate / api / worker / reaper / enqueue / status。"""
+"""命令行：migrate / api / worker / reaper / enqueue / status / metrics。"""
 import argparse
 import asyncio
 import json
-import logging
-import sys
 from pathlib import Path
 
 from personal_agent.config import Settings
+from personal_agent.obs import setup_logging
 
 MIGRATIONS = Path(__file__).resolve().parent.parent / "migrations"
 
@@ -50,8 +49,11 @@ def main(argv=None) -> int:
     e.add_argument("--idempotency-key")
     s = sub.add_parser("status", help="show a job")
     s.add_argument("job_id")
+    m = sub.add_parser("metrics", help="print a JSON snapshot of queue metrics (depth, latency, DLQ, tokens)")
+    m.add_argument("--since-minutes", type=float, help="only jobs enqueued in the last N minutes")
+    m.add_argument("--task-type")
     args = parser.parse_args(argv)
-    logging.basicConfig(level=logging.INFO, format="%(asctime)s %(name)s %(message)s", stream=sys.stderr)
+    setup_logging()                                  # PA_LOG_FORMAT=json → one JSON object per line
     settings = Settings.from_env()
 
     if args.command == "migrate":
@@ -85,6 +87,10 @@ def main(argv=None) -> int:
                 job, dedup = await broker.enqueue(task_type=args.task_type, payload_ref=ref,
                                                   idempotency_key=args.idempotency_key or str(uuid.uuid4()))
                 return {"job_id": str(job["job_id"]), "state": job["state"], "deduplicated": dedup}
+            if args.command == "metrics":
+                from personal_agent.queue.stats import snapshot
+                since = args.since_minutes * 60 if args.since_minutes is not None else None
+                return await snapshot(broker, since_s=since, task_type=args.task_type)
             job = await broker.get(args.job_id)
             return {k: str(v) if v is not None else None for k, v in job.items()} if job else None
         finally:

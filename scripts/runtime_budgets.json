@@ -1,0 +1,13 @@
+{
+  "_doc": "Runtime budgets checked by scripts/runtime_check.py (see RELIABILITY.md). These are thresholds we chose, not measurements. Probe = demo.summarize jobs submitted one by one over HTTP to a dev instance running the fake LLM (PA_FAKE_LLM_DELAY_MS default 20) and one worker with concurrency 4.",
+  "probe_jobs": 50,
+  "submit_p95_ms": 100,
+  "enqueue_to_start_p95_ms": 1000,
+  "enqueue_to_ack_p95_ms": 2000,
+  "probe_max_dead": 0,
+  "probe_max_retried": 0,
+  "probe_timeout_s": 60,
+  "log_events_required": ["leased", "acked"],
+  "system_checks_trials": 3,
+  "system_checks_min_pass_rate": 1.0
+}

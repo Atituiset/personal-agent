@@ -27,9 +27,9 @@ worker (runtime) ◄────────────────────
 | 层 | 模块 | 只能依赖 | 允许的第三方包 |
 | --- | --- | --- | --- |
 | core | `personal_agent.core.*`（errors、executor 端口、storage、context） | 标准库 | 无 |
-| providers | `personal_agent.config`（横切关注点的唯一入口：配置） | core | 无 |
+| providers | `personal_agent.config`（配置）、`personal_agent.obs`（结构化日志）：横切关注点的唯一入口 | core | 无 |
 | adapters | `personal_agent.infra.*`（LLM 适配器、Agents SDK 适配层、调用账本） | core、providers | httpx、agents、openai |
-| store | `personal_agent.queue.broker`、`personal_agent.queue.faults` | core、providers | psycopg、psycopg_pool |
+| store | `personal_agent.queue.broker`、`personal_agent.queue.faults`、`personal_agent.queue.stats`（只读指标） | core、providers | psycopg、psycopg_pool |
 | service | `personal_agent.tasks.*`（任务注册表和各任务 handler） | core、providers、adapters | 无（例外见 TD-1） |
 | runtime | `personal_agent.queue.worker` | core、providers、adapters、store、service | 无 |
 | entry | `personal_agent.api.*`、`personal_agent.cli`、`personal_agent.__main__` | 以上全部 | fastapi、pydantic、uvicorn、psycopg |

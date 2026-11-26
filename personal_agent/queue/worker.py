@@ -7,7 +7,6 @@
 - 旧租约持有者（暂停、网络分区、GC 停顿）醒来后写入：fencing 条件不满足 → LeaseLost，写入被拒。
 """
 import asyncio
-import json
 import logging
 import os
 import signal
@@ -17,6 +16,7 @@ import time
 from personal_agent.core.context import JobContext
 from personal_agent.core.errors import Fatal, JobError, LeaseLost, Retryable
 from personal_agent.core.storage import ArtifactStore, IntegrityError
+from personal_agent.obs import log_event
 from personal_agent.queue.broker import PgBroker
 from personal_agent.queue.faults import pause_point
 from personal_agent.tasks import TASKS
@@ -24,8 +24,8 @@ from personal_agent.tasks import TASKS
 log = logging.getLogger("personal_agent.worker")
 
 
-def _event(**fields):
-    log.info(json.dumps(fields, ensure_ascii=False, default=str))
+def _event(event: str, **fields):
+    log_event(log, event, **fields)
 
 
 class Worker:

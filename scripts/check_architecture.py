@@ -28,9 +28,9 @@ PACKAGE = "personal_agent"
 # Ordered bottom -> top. A module belongs to the first (longest) matching prefix.
 LAYERS: dict[str, list[str]] = {
     "core": ["personal_agent.core"],
-    "providers": ["personal_agent.config"],
+    "providers": ["personal_agent.config", "personal_agent.obs"],
     "adapters": ["personal_agent.infra"],
-    "store": ["personal_agent.queue.broker", "personal_agent.queue.faults"],
+    "store": ["personal_agent.queue.broker", "personal_agent.queue.faults", "personal_agent.queue.stats"],
     "service": ["personal_agent.tasks"],
     "runtime": ["personal_agent.queue.worker"],
     "entry": ["personal_agent.api", "personal_agent.cli", "personal_agent.__main__", "personal_agent"],

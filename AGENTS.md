@@ -28,9 +28,9 @@ personal-agent：以 Postgres 异步任务队列为核心的个人助理 Agent�
 | 路径 | 层 |
 | --- | --- |
 | `personal_agent/core/` | core：错误分类、LLM 执行端口、内容寻址存储、`JobContext` |
-| `personal_agent/config.py` | providers：配置的唯一入口 |
+| `personal_agent/config.py`、`personal_agent/obs.py` | providers：配置和结构化日志的唯一入口 |
 | `personal_agent/infra/` | adapters：fake / OpenAI 兼容 / OpenCode CLI / Agents SDK |
-| `personal_agent/queue/broker.py` | store：Postgres 队列 |
+| `personal_agent/queue/broker.py`、`personal_agent/queue/stats.py` | store：Postgres 队列和只读指标 |
 | `personal_agent/tasks/` | service：任务注册表和 handler |
 | `personal_agent/queue/worker.py` | runtime：worker 主循环 |
 | `personal_agent/api/`、`personal_agent/cli.py` | entry：HTTP API 和命令行 |
@@ -46,10 +46,20 @@ personal-agent：以 Postgres 异步任务队列为核心的个人助理 Agent�
 ```bash
 python3.12 -m venv .venv && .venv/bin/pip install -e '.[dev]'
 .venv/bin/python -m pytest -q                           # 单元 + 验收（需要 TEST_DATABASE_URL）
-.venv/bin/python scripts/check_architecture.py          # 分层检查
-.venv/bin/python scripts/doc_check.py                   # 文档检查
+make check                                              # 文档检查 + 分层检查
 .venv/bin/python -m evals.run_evals --trials 5 --k 1 3 5 --out test-results/evals-results.json
 .venv/bin/python -m evals.gate --baseline evals/baseline.json --current test-results/evals-results.json --k 3
+```
+
+## 让运行时自己说话
+
+```bash
+make dev-up                                   # 隔离实例：自己的 Postgres 库 + worker + API，JSON 日志
+make dev-status                               # 进程、数据库、指标快照
+make metrics                                  # 队列深度、入队→开始/ACK 延迟、死信、token
+make logs ARGS="--job <job_id>"               # 一个任务的事件时间线（scripts/logq.py）
+make runtime-check                            # 预算 + 7 个系统检查，见 RELIABILITY.md
+make dev-purge                                # 停掉并删除数据
 ```
 
 ## 工作约定

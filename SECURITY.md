@@ -1,7 +1,7 @@
 ---
 owner: "@Atituiset"
 last_reviewed: 2026-11-26
-code_paths: [personal_agent/config.py, personal_agent/infra/agents_sdk.py, personal_agent/tasks/agent.py, personal_agent/api/app.py, .env.example, docker-compose.yml]
+code_paths: [scripts/dev_instance.py, personal_agent/config.py, personal_agent/infra/agents_sdk.py, personal_agent/tasks/agent.py, personal_agent/api/app.py, .env.example, docker-compose.yml]
 ---
 # 安全约定
 
@@ -30,6 +30,11 @@ code_paths: [personal_agent/config.py, personal_agent/infra/agents_sdk.py, perso
 
 - API 默认只监听 `127.0.0.1`；`docker-compose.yml` 里的 Postgres 端口也只绑定 `127.0.0.1`。
 - `POST /jobs` 的内联 payload 上限 64 KiB。
+
+## 本地隔离实例
+
+- `make dev-up` 为实例生成随机数据库密码，只写在 `var/dev/<name>/instance.json`（权限 600，`var/` 不提交）；私有集群只监听 `127.0.0.1`。
+- `scripts/dev_instance.py status` 和 `up` 打印的信息去掉了密码。
 
 ## 测试用的故障注入
 

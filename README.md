@@ -98,6 +98,8 @@ curl -s "localhost:8080/jobs/<job_id>?include_result=true"
 ./scripts/stop-local.sh                    # 优雅停止
 ```
 
+给智能体用的隔离实例（自己的数据库、JSON 日志、指标和预算检查）：`make dev-up`、`make runtime-check`，见 [RELIABILITY.md](RELIABILITY.md)。
+
 注意：已经导出到 shell 的环境变量优先于 `.env`。worker 启动日志里的 `worker_start` 事件会打印实际连接的库名（不含密码），启动后可以用它确认没有连错库。
 
 接真实模型：设置 `PA_LLM=openai`、`PA_LLM_BASE_URL`、`PA_LLM_API_KEY`、`PA_LLM_MODEL`（任意 OpenAI 兼容的 `/chat/completions`）。密钥只从环境变量读取。M0 的测试只用 fake LLM。
