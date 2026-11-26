@@ -12,6 +12,8 @@
 
 设计文档见 [docs/design.md](docs/design.md)，M0 验收报告见 [docs/m0-test-report.md](docs/m0-test-report.md)。
 
+给智能体（和新贡献者）的仓库地图见 [AGENTS.md](AGENTS.md)：分层见 [ARCHITECTURE.md](ARCHITECTURE.md)，可靠性不变量见 [RELIABILITY.md](RELIABILITY.md)，执行计划约定见 [PLANS.md](PLANS.md)。
+
 ## 架构
 
 ```mermaid

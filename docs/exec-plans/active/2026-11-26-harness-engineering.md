@@ -18,9 +18,9 @@ code_paths: [AGENTS.md, ARCHITECTURE.md, PLANS.md, scripts, evals, .github/workf
 
 ## 进度
 
-- [ ] 1. 执行计划约定：PLANS.md、模板、本计划、tech-debt-tracker
-- [ ] 2. AGENTS.md 改成约 100 行的目录，补 ARCHITECTURE / RELIABILITY / SECURITY / QUALITY_SCORE、design-docs、references；`scripts/doc_check.py` + CI
-- [ ] 3. 分层 lint：`scripts/check_architecture.py` + `tests/test_architecture.py`，报错带修复说明
+- [x] 1. 执行计划约定：PLANS.md、模板、本计划、tech-debt-tracker（提交 `docs: exec plans as first-class artifacts`）
+- [x] 2. AGENTS.md 改成约 100 行的目录，补 ARCHITECTURE / RELIABILITY / SECURITY / QUALITY_SCORE、design-docs、references；`scripts/doc_check.py` + CI
+- [x] 3. 分层 lint：`scripts/check_architecture.py` + `tests/test_architecture.py`，报错带修复说明；现有代码只有一处例外，登记为 TD-1
 - [ ] 4. 运行时可读：结构化日志、`personal-agent metrics`、`make dev-up`、`make runtime-check`（预算 + 7 个系统检查）+ CI
 - [ ] 5. 评测反馈回路：`evals/followup.py`，门禁失败时生成 JSON + Markdown 跟进项
 - [ ] 6. 黄金原则：`docs/design-docs/golden-principles.md`、`scripts/golden_scan.py`、每周 workflow
@@ -29,11 +29,13 @@ code_paths: [AGENTS.md, ARCHITECTURE.md, PLANS.md, scripts, evals, .github/workf
 ## 决策日志
 
 - 2026-11-26：保留 `docs/design.md` 和各测试报告的原位置，只在 `docs/design-docs/index.md` 里索引；原因是 README 和外部链接都指向这些路径，搬家收益小于断链风险。
+- 2026-11-26：分层检查先于文档检查提交，因为 AGENTS.md 和 ARCHITECTURE.md 要引用检查脚本。
 - 2026-11-26：新检查都用标准库 Python 写（不引入新依赖），和仓库现有的测试、评测保持一种语言。
 
 ## 意外与发现
 
-- （进行中补充）
+- 仓库原来没有 AGENTS.md，所以第 2 点是新建而不是拆分。
+- 现有代码基本已经按层组织（`core` 不依赖驱动的测试早就有）；唯一越界的是 `tasks/agent.py` 直接用 Agents SDK（TD-1）。
 
 ## 验证
 

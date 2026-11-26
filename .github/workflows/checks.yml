@@ -1,0 +1,31 @@
+# Mechanical checks that keep the repository legible to agents (see AGENTS.md):
+# documentation links/freshness and the layer rules from ARCHITECTURE.md.
+name: checks
+
+on:
+  push:
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  static:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0   # doc freshness compares code changes with last_reviewed dates
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Install
+        run: python -m pip install -e '.[dev]'
+      - name: Doc check (links, AGENTS.md map, front matter, freshness)
+        run: python scripts/doc_check.py
+      - name: Architecture check (layer direction, third-party allowlist)
+        run: python scripts/check_architecture.py
+      - name: Self-tests for the checks
+        run: python -m pytest -q tests/test_doc_check.py tests/test_architecture.py
