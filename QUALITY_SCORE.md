@@ -20,4 +20,6 @@ code_paths: [personal_agent, tests, evals]
 | adapters：OpenCode CLI | B | `tests/test_opencode.py`（事件解析、限流分类） | 真实 CLI 只手动检查过（[docs/opencode-free-models-check.md](docs/opencode-free-models-check.md)） |
 | adapters：OpenAI 兼容 HTTP | C | 只有异常映射被 Agents SDK 路径间接测到 | 没有针对 `openai_compat.py` 的单元测试 |
 | entry：API / CLI | B | 验收测试通过 HTTP 提交；评测通过 CLI 起 worker | `status` / `reaper` 子命令没有直接测试 |
-| 文档 | B | `scripts/doc_check.py`（链接、front matter、新鲜度） | 设计文档里路线图部分只能人工核对 |
+| 文档 | B | `scripts/doc_check.py`（链接、front matter、新鲜度），`tests/test_doc_check.py` | 设计文档里路线图部分只能人工核对 |
+| 运行时可读性（日志、指标、预算） | B | `scripts/runtime_check.py`（本地和 CI）、`tests/test_runtime_legibility.py` | 指标只在 CLI 里，没有 OpenTelemetry 导出（路线图 M3） |
+| 架构与黄金原则 | A | `scripts/check_architecture.py`、`scripts/golden_scan.py` 及其测试；CI 拦新增偏差 | TD-1、TD-2、TD-3 |

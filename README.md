@@ -53,16 +53,20 @@ flowchart LR
 personal_agent/
   core/        storage.py（内容寻址存储，改编自 security-agent）· executor.py（LLM 执行端口）
                context.py（JobContext：complete / step 检查点 / effect 副作用账本）· errors.py
-  queue/       broker.py（Postgres 队列）· worker.py（主循环）· faults.py（测试用故障注入）
+  queue/       broker.py（Postgres 队列）· worker.py（主循环）· faults.py（测试用故障注入）· stats.py（只读指标）
   api/         app.py（POST /jobs、GET /jobs/{id}、/healthz）
   infra/       fake_llm.py · openai_compat.py · opencode_cli.py · ledger.py · llm.py（按 PA_LLM 选择）
                agents_sdk.py（Agents SDK：FakeAgentModel、模型选择、tracing、账本 hooks、异常映射）
   tasks/       demo.py（demo.summarize）· agent.py（agent.run 与内置工具）
+  config.py · obs.py（结构化日志）· cli.py
 migrations/    0001_init.sql · 0002_attempt_usage.sql（attempts.usage）
 tests/         test_acceptance.py（6 条验收）· test_unit.py · test_opencode.py
                test_agents_unit.py · test_agent_acceptance.py（agent.run）
+               test_architecture.py · test_doc_check.py · test_golden_scan.py · test_runtime_legibility.py · test_eval_followup.py
 scripts/       run-local.sh · stop-local.sh · render_test_report.py
-evals/         agent.run 的评测：34 个任务、评分器、pass^k、门禁、裁判校准（见 evals/README.md）
+               check_architecture.py · doc_check.py · golden_scan.py · dev_instance.py · logq.py · runtime_check.py
+evals/         agent.run 的评测：34 个任务、评分器、pass^k、门禁、裁判校准、失败跟进（见 evals/README.md）
+docs/          设计文档、执行计划（exec-plans/）、参考资料、测试报告；入口是 AGENTS.md
 ```
 
 ## 本地运行

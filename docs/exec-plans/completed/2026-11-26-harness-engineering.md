@@ -1,7 +1,7 @@
 ---
 owner: "@Atituiset"
 last_reviewed: 2026-11-26
-status: active
+status: completed
 code_paths: [AGENTS.md, ARCHITECTURE.md, PLANS.md, scripts, evals, .github/workflows]
 ---
 # 把 Harness Engineering 的做法落到 personal-agent
@@ -24,7 +24,7 @@ code_paths: [AGENTS.md, ARCHITECTURE.md, PLANS.md, scripts, evals, .github/workf
 - [x] 4. 运行时可读：结构化日志、`personal-agent metrics`、`make dev-up`、`make runtime-check`（预算 + 7 个系统检查）+ CI
 - [x] 5. 评测反馈回路：`evals/followup.py`，门禁失败时生成 JSON + Markdown 跟进项
 - [x] 6. 黄金原则：`docs/design-docs/golden-principles.md`、`scripts/golden_scan.py`、每周 workflow
-- [ ] 7. 全量验证（pytest、evals、新检查、actionlint），本计划移到 completed/
+- [x] 7. 全量验证（pytest、evals、新检查、actionlint），本计划移到 completed/
 
 ## 决策日志
 
@@ -55,4 +55,28 @@ code_paths: [AGENTS.md, ARCHITECTURE.md, PLANS.md, scripts, evals, .github/workf
 
 ## 结果
 
-（完成时填写）
+交付（分支 `harness-engineering`，6 个功能提交 + 本收尾提交）：
+
+1. `AGENTS.md`（目录，不到 100 行）+ `ARCHITECTURE.md`、`RELIABILITY.md`、`SECURITY.md`、`QUALITY_SCORE.md`、`PLANS.md`、
+   `docs/design-docs/`（索引、核心信念、黄金原则）、`docs/references/`（Agents SDK、Postgres 队列特性）、
+   `docs/exec-plans/`（模板、tech-debt-tracker、本计划）；`scripts/doc_check.py` + CI。
+2. 执行计划约定和模板；本计划从 active/ 移到 completed/。
+3. `scripts/check_architecture.py`：7 层、第三方包白名单、报错带修复说明；现有代码 1 处例外（TD-1）。
+4. `personal_agent/obs.py`、`personal_agent/queue/stats.py`、`personal-agent metrics`、`scripts/dev_instance.py`、
+   `scripts/logq.py`、`scripts/runtime_check.py`、`Makefile`；CI `checks / runtime` job。
+5. `evals/followup.py`、`evals.gate --report-json`、`make gate` 写跟进计划、evals.yml 的跟进步骤。
+6. `docs/design-docs/golden-principles.md`、`scripts/golden_scan.py`、`scripts/golden_baseline.json`（5 处已知偏差，TD-2、TD-3）、
+   每周 `golden-scan` workflow。
+
+验证（2026-11-26 本机，Debian 13，Python 3.12.16，PostgreSQL 17.12）：
+
+- `pytest -q`：92 passed（改动前 41 passed）。
+- `evals.run_evals --trials 5 --k 1 3 5`：回归集 150/150（pass^3 1.000，Wilson [0.975, 1.0]），能力集 10/20，违规 0；`evals.gate` 通过，tokens/trial 和基线一致（314.1 / 765.8）。
+- `evals.judge.calibrate`：kappa 1.000，fail recall 1.000，换位 0 次翻转（和改动前一致）。
+- `make check`：文档检查 20 个 Markdown 文件 0 错误；架构检查 27 个文件、1 个登记的例外；黄金原则 0 新增、5 已知。
+- `runtime_check.py --up`：私有 initdb 集群上提交 p95 4.1 ms、入队→开始 p95 381.4 ms、入队→ACK p95 407.7 ms；
+  在干净克隆里用 admin 模式（和 CI 一样）提交 p95 5.9 ms、入队→开始 p95 317.2 ms、入队→ACK p95 347.1 ms；两次 7 个系统检查都是 3/3。
+- actionlint 1.7.12（带 shellcheck）：3 个 workflow 0 错误。
+
+遗留：TD-1、TD-2、TD-3 见 tech-debt-tracker。GitHub 上的 CI 和每周 workflow 还没有实际跑过（本地无法推送），首次运行后需要确认
+`checks / runtime` 的耗时和每周 workflow 建 issue 的权限（仓库需开启 Issues）。
