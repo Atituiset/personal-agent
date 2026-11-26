@@ -330,8 +330,8 @@ def main(argv=None) -> int:
     summary, per_task, rows = summarize(tasks, facts, args.grader, args.k, args.trials)
     try:
         sha = subprocess.run(["git", "rev-parse", "--short", "HEAD"], cwd=ROOT, capture_output=True,
-                             text=True).stdout.strip() or None
-    except OSError:
+                             text=True, timeout=10).stdout.strip() or None
+    except (OSError, subprocess.TimeoutExpired):
         sha = None
     meta = {"model": args.model, "profile": args.profile if args.model == DEFAULT_MODEL else None,
             "grader": args.grader, "trials": args.trials, "k": args.k, "tasks": len(tasks),

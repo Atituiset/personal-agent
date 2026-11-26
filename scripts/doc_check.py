@@ -29,7 +29,7 @@ ROOT = Path(__file__).resolve().parents[1]
 
 REQUIRED_IN_AGENTS = [
     "ARCHITECTURE.md", "RELIABILITY.md", "SECURITY.md", "QUALITY_SCORE.md", "PLANS.md",
-    "docs/design-docs/index.md", "docs/design-docs/core-beliefs.md",
+    "docs/design-docs/index.md", "docs/design-docs/core-beliefs.md", "docs/design-docs/golden-principles.md",
     "docs/exec-plans/tech-debt-tracker.md", "evals/README.md",
 ]
 AGENTS_MAX_LINES = 120

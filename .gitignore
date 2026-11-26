@@ -11,3 +11,4 @@ test-results/evals-results.json
 test-results/gate-report.json
 test-results/followup/
 test-results/followup-rerun.json
+test-results/golden-report.md

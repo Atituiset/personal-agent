@@ -3,7 +3,7 @@ PY ?= .venv/bin/python
 NAME ?= default
 TRIALS ?= 5
 
-.PHONY: help install test check docs-check arch-check dev-up dev-down dev-purge dev-status dev-env logs metrics \
+.PHONY: help install test check docs-check arch-check golden-check golden-scan dev-up dev-down dev-purge dev-status dev-env logs metrics \
         runtime-check evals gate
 
 help:            ## list targets
@@ -15,13 +15,19 @@ install:         ## create .venv and install the package with dev extras
 test:            ## unit + acceptance tests (needs TEST_DATABASE_URL)
 	$(PY) -m pytest -q
 
-check: docs-check arch-check  ## all static checks (no database needed)
+check: docs-check arch-check golden-check  ## all static checks (no database needed)
 
 docs-check:      ## links, AGENTS.md map, front matter, freshness
 	$(PY) scripts/doc_check.py
 
 arch-check:      ## layer direction and third-party allowlist
 	$(PY) scripts/check_architecture.py
+
+golden-check:    ## fail on drift from the golden principles that is not in the baseline
+	$(PY) scripts/golden_scan.py --fail-on-new
+
+golden-scan:     ## full drift report (new / known / fixed); writes test-results/golden-report.md
+	$(PY) scripts/golden_scan.py --markdown test-results/golden-report.md
 
 dev-up:          ## start an isolated instance: own Postgres DBs + worker + API, JSON logs in var/dev/$(NAME)/logs
 	$(PY) scripts/dev_instance.py up --name $(NAME)

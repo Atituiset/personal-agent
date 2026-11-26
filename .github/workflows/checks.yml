@@ -1,5 +1,5 @@
 # Mechanical checks that keep the repository legible to agents (see AGENTS.md):
-# documentation links/freshness and the layer rules from ARCHITECTURE.md.
+# documentation links/freshness, the layer rules from ARCHITECTURE.md and the golden principles.
 name: checks
 
 on:
@@ -27,8 +27,10 @@ jobs:
         run: python scripts/doc_check.py
       - name: Architecture check (layer direction, third-party allowlist)
         run: python scripts/check_architecture.py
+      - name: Golden principles scan (fail on drift not in scripts/golden_baseline.json)
+        run: python scripts/golden_scan.py --fail-on-new
       - name: Self-tests for the checks
-        run: python -m pytest -q tests/test_doc_check.py tests/test_architecture.py
+        run: python -m pytest -q tests/test_doc_check.py tests/test_architecture.py tests/test_golden_scan.py
 
   runtime:
     # Agent-legible runtime: start an isolated instance (worker + API + its own databases on the

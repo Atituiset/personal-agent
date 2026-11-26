@@ -1,0 +1,60 @@
+# Weekly "garbage collection": scan for drift from docs/design-docs/golden-principles.md,
+# publish the report in the job summary and keep one tracking issue up to date.
+# It never edits code, opens pull requests or merges anything.
+name: golden-scan
+
+on:
+  schedule:
+    - cron: "0 1 * * 1"   # Mondays 01:00 UTC
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  issues: write
+
+concurrency:
+  group: golden-scan
+  cancel-in-progress: false
+
+jobs:
+  scan:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Scan (standard library only, no install needed)
+        run: |
+          mkdir -p golden
+          python scripts/golden_scan.py --markdown golden/report.md --json golden/report.json
+          cat golden/report.md >> "$GITHUB_STEP_SUMMARY"
+      - name: Open, update or close the tracking issue
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        run: |
+          title="Golden principles drift report"
+          read -r new known < <(python -c "import json; d = json.load(open('golden/report.json')); print(len(d['new']), len(d['known']))")
+          printf '\n_Run: %s_\n' "$RUN_URL" >> golden/report.md
+          num=$(gh issue list --state open --limit 100 --json number,title \
+                  --jq "map(select(.title == \"$title\")) | .[0].number // empty")
+          if [ $((new + known)) -gt 0 ]; then
+            if [ -n "$num" ]; then
+              gh issue edit "$num" --body-file golden/report.md
+              if [ "$new" -gt 0 ]; then
+                gh issue comment "$num" --body "New drift this week: $new finding(s). See $RUN_URL"
+              fi
+            else
+              gh issue create --title "$title" --body-file golden/report.md
+            fi
+          elif [ -n "$num" ]; then
+            gh issue close "$num" --comment "No drift found in $RUN_URL; closing."
+          fi
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: golden-scan
+          path: golden/

@@ -23,7 +23,7 @@ code_paths: [AGENTS.md, ARCHITECTURE.md, PLANS.md, scripts, evals, .github/workf
 - [x] 3. 分层 lint：`scripts/check_architecture.py` + `tests/test_architecture.py`，报错带修复说明；现有代码只有一处例外，登记为 TD-1
 - [x] 4. 运行时可读：结构化日志、`personal-agent metrics`、`make dev-up`、`make runtime-check`（预算 + 7 个系统检查）+ CI
 - [x] 5. 评测反馈回路：`evals/followup.py`，门禁失败时生成 JSON + Markdown 跟进项
-- [ ] 6. 黄金原则：`docs/design-docs/golden-principles.md`、`scripts/golden_scan.py`、每周 workflow
+- [x] 6. 黄金原则：`docs/design-docs/golden-principles.md`、`scripts/golden_scan.py`、每周 workflow
 - [ ] 7. 全量验证（pytest、evals、新检查、actionlint），本计划移到 completed/
 
 ## 决策日志
@@ -33,6 +33,8 @@ code_paths: [AGENTS.md, ARCHITECTURE.md, PLANS.md, scripts, evals, .github/workf
 - 2026-11-26：隔离实例按顺序尝试三种数据库来源：`PA_DEV_ADMIN_URL`（CI 用 postgres:17 服务容器）、本机 initdb 私有集群、Docker；每个 worktree 的 `var/` 各自独立，库名带仓库路径哈希，不会互相踩。
 - 2026-11-26：系统检查跑在实例的第二个库（`…_eval`）上，因为评测 runner 会 TRUNCATE 并自己起 worker，和实例的常驻 worker 共用一个库会抢任务。
 - 2026-11-26：跟进项只在门禁失败时生成，门禁的判定逻辑和 `evals/baseline.json` 不动；本地写进 `docs/exec-plans/active/`（成为下一轮的执行计划），CI 写 job summary 和 artifact（CI 不能往仓库里提交）。
+- 2026-11-26：黄金原则只收能用 AST 机械判定的 6 条；现有偏差（5 处）不在本次顺手重构，登记为 TD-2、TD-3 并写进基线，CI 只拦新增偏差。唯一顺手修的是 `evals/run_evals.py` 里 `git rev-parse` 缺超时（一行改动）。
+- 2026-11-26：每周 workflow 只维护一个 issue（有偏差就新建或更新正文，新偏差时追加评论，没有偏差就关闭），不开 PR、不改代码。
 - 2026-11-26：新检查都用标准库 Python 写（不引入新依赖），和仓库现有的测试、评测保持一种语言。
 
 ## 意外与发现

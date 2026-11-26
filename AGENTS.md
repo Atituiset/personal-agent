@@ -19,6 +19,7 @@ personal-agent：以 Postgres 异步任务队列为核心的个人助理 Agent�
 | 判断哪块最需要补 | [QUALITY_SCORE.md](QUALITY_SCORE.md) |
 | 做跨多个提交的改动 | [PLANS.md](PLANS.md)，计划放 [docs/exec-plans/active/](docs/exec-plans/active/) |
 | 看设计和取舍 | [docs/design-docs/index.md](docs/design-docs/index.md)、[核心信念](docs/design-docs/core-beliefs.md) |
+| 写新代码前要守的机械规则 | [黄金原则](docs/design-docs/golden-principles.md)（`make golden-scan` 看偏差） |
 | 查已知问题和例外 | [docs/exec-plans/tech-debt-tracker.md](docs/exec-plans/tech-debt-tracker.md) |
 | 查依赖的用法 | [Agents SDK](docs/references/openai-agents-sdk.md)、[Postgres 队列特性](docs/references/postgres-queue.md) |
 | 改评测、门禁、基线 | [evals/README.md](evals/README.md) |
@@ -46,7 +47,7 @@ personal-agent：以 Postgres 异步任务队列为核心的个人助理 Agent�
 ```bash
 python3.12 -m venv .venv && .venv/bin/pip install -e '.[dev]'
 .venv/bin/python -m pytest -q                           # 单元 + 验收（需要 TEST_DATABASE_URL）
-make check                                              # 文档检查 + 分层检查
+make check                                              # 文档检查 + 分层检查 + 黄金原则（无需数据库）
 make evals && make gate                                 # 评测 + 回归门禁；门禁失败会在 docs/exec-plans/active/ 写跟进计划
 ```
 
@@ -67,6 +68,6 @@ make dev-purge                                # 停掉并删除数据
 2. 跨多个提交的改动先写执行计划，进度和决策记在计划里，做完移到 `docs/exec-plans/completed/`。
 3. 改了行为就改对应文档，并更新它 front matter 里的 `last_reviewed`。
 4. 数字只写真实跑出来的，注明命令；没测过就写「未测」。
-5. 例外（分层、黄金原则）必须登记在 tech-debt-tracker，带退出条件。
+5. 例外（分层、黄金原则）必须登记在 tech-debt-tracker，带退出条件；不要为了让检查通过去改检查本身。
 6. 不在无人值守的路径上执行对外副作用；不要部署（本仓库目前只在本机运行）。
 7. 不要提交 `.env`、密钥、`var/` 下的运行数据。
