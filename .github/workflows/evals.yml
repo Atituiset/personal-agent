@@ -45,11 +45,25 @@ jobs:
       - name: Judge calibration (rubric judge must agree with human labels)
         run: python -m evals.judge.calibrate
       - name: Eval suite (scripted policy, 5 trials per task, isolated grading)
+        id: evals
         run: python -m evals.run_evals --trials 5 --k 1 3 5 --out test-results/evals-results.json
       - name: Regression gate against evals/baseline.json
-        run: python -m evals.gate --baseline evals/baseline.json --current test-results/evals-results.json --k 3
+        run: >-
+          python -m evals.gate --baseline evals/baseline.json --current test-results/evals-results.json --k 3
+          --report-json test-results/gate-report.json
+      # Feedback loop: a failed gate becomes a follow-up (failing tasks, grader messages, trajectory
+      # pointers, next actions) in the job summary and as an artifact. The gate's verdict is unchanged.
+      - name: Eval follow-up (only when the gate failed)
+        if: failure() && steps.evals.outcome == 'success'
+        run: >-
+          python -m evals.followup --results test-results/evals-results.json --baseline evals/baseline.json
+          --gate-report test-results/gate-report.json --out-dir test-results/followup --summary
       - uses: actions/upload-artifact@v4
         if: always()
         with:
           name: eval-results
-          path: test-results/evals-results.json
+          path: |
+            test-results/evals-results.json
+            test-results/gate-report.json
+            test-results/followup/
+          if-no-files-found: ignore

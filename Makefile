@@ -50,5 +50,9 @@ runtime-check:   ## budgets (latency, DLQ, logs) + the 7 system checks against t
 evals:           ## eval suite (needs EVAL_DATABASE_URL)
 	$(PY) -m evals.run_evals --trials $(TRIALS) --k 1 3 5 --out test-results/evals-results.json
 
-gate:            ## regression gate against evals/baseline.json
-	$(PY) -m evals.gate --baseline evals/baseline.json --current test-results/evals-results.json --k 3
+gate:            ## regression gate; on failure write a follow-up exec plan into docs/exec-plans/active/
+	@$(PY) -m evals.gate --baseline evals/baseline.json --current test-results/evals-results.json --k 3 \
+	    --report-json test-results/gate-report.json || { \
+	  $(PY) -m evals.followup --results test-results/evals-results.json --baseline evals/baseline.json \
+	      --gate-report test-results/gate-report.json --out-dir test-results/followup \
+	      --exec-plan-dir docs/exec-plans/active; exit 1; }

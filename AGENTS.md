@@ -47,8 +47,7 @@ personal-agent：以 Postgres 异步任务队列为核心的个人助理 Agent�
 python3.12 -m venv .venv && .venv/bin/pip install -e '.[dev]'
 .venv/bin/python -m pytest -q                           # 单元 + 验收（需要 TEST_DATABASE_URL）
 make check                                              # 文档检查 + 分层检查
-.venv/bin/python -m evals.run_evals --trials 5 --k 1 3 5 --out test-results/evals-results.json
-.venv/bin/python -m evals.gate --baseline evals/baseline.json --current test-results/evals-results.json --k 3
+make evals && make gate                                 # 评测 + 回归门禁；门禁失败会在 docs/exec-plans/active/ 写跟进计划
 ```
 
 ## 让运行时自己说话

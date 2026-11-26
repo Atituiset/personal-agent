@@ -67,6 +67,23 @@ EVAL_DATABASE_URL=postgresql://personal_agent:<密码>@127.0.0.1:5432/personal_a
 
 CI（`.github/workflows/evals.yml`）用 `postgres:17` 服务容器跑同样的命令，结果作为 artifact 上传。
 
+### 门禁失败之后：自动生成跟进项
+
+门禁只说“哪里退步了”；`evals/followup.py` 把它变成下一轮要做的事。门禁通过时它什么都不做，门禁的判定（包括 pass^k）不变。
+
+```bash
+make evals && make gate      # gate 失败时自动写 docs/exec-plans/active/<日期>-eval-followup-<sha>.md
+# 等价于：
+.venv/bin/python -m evals.gate ... --report-json test-results/gate-report.json
+.venv/bin/python -m evals.followup --results test-results/evals-results.json --gate-report test-results/gate-report.json \
+    --out-dir test-results/followup --exec-plan-dir docs/exec-plans/active
+```
+
+每个失败任务包括：评分器的失败信息（按次数汇总）、过程违规、最多 3 条失败轨迹（试验号、`job_id`、状态、attempt 数、工具调用、最终回答）、
+任务定义在 `evals/tasks/*.jsonl` 的行号、复现命令，以及按失败信息匹配出的下一步（指到具体代码位置和 RELIABILITY.md 的不变量）。
+输出有两份：`followup.json`（机器可读）和 Markdown（本地写成执行计划，CI 里追加到 job summary 并作为 artifact 上传）。
+用 `--keep-workdir` 跑评测时，worker 日志是 JSON 行，可以用 `scripts/logq.py --log-dir <workdir> --job <job_id>` 查一个任务的事件时间线。
+
 ## 实测（2026-11-25，本机 Debian，Python 3.12，openai-agents 0.25.0，每个任务 5 次试验）
 
 | 运行 | 回归集 | 回归 pass^3 | 能力集 | 违规试验 | 门禁 |

@@ -12,6 +12,7 @@ code_paths: [docs/exec-plans/TEMPLATE.md, docs/exec-plans/active, docs/exec-plan
 
 - 预计超过一个提交，或会改动两个以上的层（见 [ARCHITECTURE.md](ARCHITECTURE.md)）；
 - 改变了不变量、预算或门禁（[RELIABILITY.md](RELIABILITY.md)、`evals/baseline.json`）；
+- 评测门禁失败后自动生成的跟进项（`make gate` 调 `evals/followup.py` 写进 `docs/exec-plans/active/`，见 [evals/README.md](evals/README.md)）。
 
 小修小补（单个提交、单层、不碰不变量）直接在提交信息里说清楚即可。
 

@@ -82,11 +82,12 @@ class Env:
         # 场景任务每次试验起新 worker 进程：把试验号并进种子，noisy 档案的随机数才会逐次不同
         e = {**os.environ, "DATABASE_URL": self.db, "PA_ARTIFACT_DIR": str(self.artifacts),
              "PA_AGENT_MODEL": self.model, "PA_EVAL_POLICY": self.profile, "PA_EVAL_SEED": seed or self.seed,
-             "PA_LLM_LEDGER": str(self.ledger), "PYTHONUNBUFFERED": "1", "PA_AGENTS_TRACING": "off"}
+             "PA_LLM_LEDGER": str(self.ledger), "PYTHONUNBUFFERED": "1", "PA_AGENTS_TRACING": "off",
+             "PA_LOG_FORMAT": "json"}   # one JSON event per line: `scripts/logq.py --log-dir <workdir> --job <id>`
         e.pop("PA_FAULT_PAUSE_AT", None)
         if fault:
             e.update(PA_FAULT_PAUSE_AT=fault, PA_FAULT_DIR=str(self.faults))
-        log = (self.dir / f"{name}.log").open("w")
+        log = (self.dir / f"{name}.jsonl").open("w")
         p = subprocess.Popen([sys.executable, "-m", "personal_agent", "worker", "--worker-id", name,
                               "--concurrency", str(concurrency), *FAST],
                              cwd=ROOT, env=e, stdout=log, stderr=subprocess.STDOUT)
@@ -230,7 +231,8 @@ def summarize(tasks, facts, mode, ks, trials):
             g = grade(t, f, mode)
             tokens = sum(a["tokens"] for a in f["attempts"])
             secs = sum(a["seconds"] or 0 for a in f["attempts"])
-            rows.append({"task": t["id"], "trial": trial, "passed": g["passed"], "failures": g["failures"],
+            rows.append({"task": t["id"], "trial": trial, "job_id": f.get("job_id"), "passed": g["passed"],
+                         "failures": g["failures"],
                          "violations": g["violations"], "state": f["state"], "attempts": f["attempt"],
                          "model_calls": f["ledger_calls"], "tokens": tokens, "exec_seconds": round(secs, 4),
                          "final_output": (f.get("result") or {}).get("final_output"),
@@ -336,6 +338,8 @@ def main(argv=None) -> int:
             "wall_seconds": round(wall, 2), "git": sha, "python": sys.version.split()[0],
             "openai_agents": importlib.metadata.version("openai-agents"),
             "recorded_at": datetime.now(timezone.utc).isoformat(timespec="seconds")}
+    if args.keep_workdir:
+        meta["workdir"] = str(workdir)   # worker logs, artifacts and the call ledger for trajectory follow-up
     out = {"meta": meta, "summary": summary, "per_task": per_task}
     if not args.no_trials:
         out["trials"] = rows

@@ -8,3 +8,6 @@ __pycache__/
 var/
 test-results/*.log
 test-results/evals-results.json
+test-results/gate-report.json
+test-results/followup/
+test-results/followup-rerun.json

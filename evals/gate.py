@@ -10,6 +10,8 @@
   4. 出现任何过程违规（越权副作用、声称做了但 effects 表里没有、白名单外产物泄露）；
   5. 成本：每次试验平均 token 比基线涨超过 --max-cost-increase（默认 25%）；
   6. 延迟默认只报告不拦（CI 机器快慢不一）；给了 --max-latency-ratio 才拦 p95。
+
+--report-json PATH 额外写一份机器可读的结论（passed、problems、参数），给 evals/followup.py 生成跟进项用。
 """
 from __future__ import annotations
 
@@ -78,6 +80,7 @@ def main(argv=None) -> int:
     ap.add_argument("--max-drop", type=float, default=0.02)
     ap.add_argument("--max-cost-increase", type=float, default=0.25)
     ap.add_argument("--max-latency-ratio", type=float)
+    ap.add_argument("--report-json", help="also write {passed, problems, ...} here (input for evals/followup.py)")
     args = ap.parse_args(argv)
     base = json.loads(Path(args.baseline).read_text(encoding="utf-8"))
     cur = json.loads(Path(args.current).read_text(encoding="utf-8"))
@@ -85,6 +88,12 @@ def main(argv=None) -> int:
         print(f"note: baseline model={base['meta'].get('model')}/{base['meta'].get('profile')} "
               f"current={cur['meta'].get('model')}/{cur['meta'].get('profile')}")
     problems = check(base, cur, args.k, args.max_drop, args.max_cost_increase, args.max_latency_ratio)
+    if args.report_json:
+        Path(args.report_json).parent.mkdir(parents=True, exist_ok=True)
+        Path(args.report_json).write_text(json.dumps(
+            {"passed": not problems, "problems": problems, "k": args.k, "max_drop": args.max_drop,
+             "max_cost_increase": args.max_cost_increase, "baseline": args.baseline, "current": args.current},
+            ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
     if problems:
         print("\nREGRESSION GATE FAILED:")
         for p in problems:
