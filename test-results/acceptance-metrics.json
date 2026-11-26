@@ -1,10 +1,10 @@
 {
   "1_submit_latency": {
     "requests": 100,
-    "p50_ms": 3.92,
-    "p95_ms": 9.95,
-    "max_ms": 24.63,
-    "mean_ms": 4.81,
+    "p50_ms": 3.22,
+    "p95_ms": 4.18,
+    "max_ms": 8.6,
+    "mean_ms": 3.31,
     "threshold_ms": 100
   },
   "2_idempotency": {
@@ -16,7 +16,7 @@
     "rows_in_db": 2
   },
   "3_kill_before_persist": {
-    "job_id": "f32caa85-1603-416a-8012-725179c24620",
+    "job_id": "a347b882-17be-4fa5-a373-0efaee9beb7f",
     "kill_signal": "SIGKILL",
     "lease_seconds": 2,
     "final_state": "succeeded",
@@ -36,10 +36,10 @@
       }
     ],
     "result_from_attempt": 2,
-    "kill_to_succeeded_s": 2.22
+    "kill_to_succeeded_s": 2.37
   },
   "4_kill_after_persist": {
-    "job_id": "cda0c3cb-f57c-495b-a06a-a57dd5d2416f",
+    "job_id": "966976f9-0eb9-4494-adff-22b466af2c88",
     "kill_signal": "SIGKILL",
     "lease_seconds": 2,
     "final_state": "succeeded",
@@ -59,10 +59,10 @@
       }
     ],
     "result_from_attempt": 1,
-    "kill_to_succeeded_s": 2.19
+    "kill_to_succeeded_s": 2.39
   },
   "5a_fencing_process": {
-    "job_id": "c16bc666-c935-49db-bf5e-8716b860ae07",
+    "job_id": "4a827b7b-a6c6-44c2-a786-080bea6b217e",
     "final_state": "succeeded",
     "final_attempt": 2,
     "result_written_by_attempt": 2,
@@ -80,11 +80,11 @@
     ],
     "a_fenced_log": {
       "event": "fenced",
-      "job_id": "c16bc666-c935-49db-bf5e-8716b860ae07",
+      "job_id": "4a827b7b-a6c6-44c2-a786-080bea6b217e",
       "attempt": 1,
-      "detail": "persist rejected for c16bc666-c935-49db-bf5e-8716b860ae07 attempt 1"
+      "detail": "persist rejected for 4a827b7b-a6c6-44c2-a786-080bea6b217e attempt 1"
     },
-    "sigstop_to_b_succeeded_s": 1.76
+    "sigstop_to_b_succeeded_s": 4.12
   },
   "5b_fencing_broker": {
     "persist_after_expiry": "rejected",
@@ -107,16 +107,16 @@
     "max_calls_per_job": 1,
     "missing_jobs": 0,
     "acked_by_worker": {
-      "worker-1": 104,
-      "worker-2": 96
+      "worker-2": 104,
+      "worker-1": 96
     },
     "concurrency_per_worker": 8,
     "fake_llm_delay_ms": 20,
-    "wall_clock_s": 0.68,
-    "throughput_jobs_per_s": 293.7
+    "wall_clock_s": 1.8,
+    "throughput_jobs_per_s": 111.1
   },
   "_meta": {
-    "recorded_at_unix": 1795100012.4684439,
+    "recorded_at_unix": 1795700093.8113267,
     "python": "3.12.16",
     "exitstatus": 0
   }
